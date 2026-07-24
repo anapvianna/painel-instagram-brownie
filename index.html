@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Painel Instagram Browniedoluiz",
+  "schemaVersion": 1,
+  "description": "Painel ao vivo do Instagram @browniedoluiz (via Windsor.ai): Visão geral com KPIs 30d comparados ao período anterior, gráfico diário, principais achados, além do gráfico de 14d e tabela de posts. Navegação superior com áreas futuras. Busca dados frescos a cada abertura.",
+  "mcpTools": [
+    "mcp__8cd3df68-70a0-47b8-bc26-3ca7a85cef56__get_data"
+  ],
+  "mcpServerNames": [
+    "Windsor.ai"
+  ]
+}
+</script>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel — Instagram Brownie do Luiz</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #faf9f7; color: #1f1e1c; padding: 20px; font-size: 14px;
+  }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { color: #6b6862; font-size: 12px; margin-top: 2px; }
+
+  /* ---- Navegação superior ---- */
+  nav.topnav { display: flex; flex-wrap: wrap; gap: 4px; margin: 16px 0; border-bottom: 1px solid #e8e5e0; padding-bottom: 0; }
+  nav.topnav button {
+    font: inherit; font-size: 13px; border: none; background: none; cursor: pointer;
+    padding: 8px 12px; border-radius: 8px 8px 0 0; color: #6b6862; position: relative;
+  }
+  nav.topnav button.active { color: #a05a2c; font-weight: 600; background: #fff; border: 1px solid #e8e5e0; border-bottom: 1px solid #fff; margin-bottom: -1px; }
+  nav.topnav button.soon { color: #b8b4ad; cursor: not-allowed; }
+  nav.topnav button.soon::after { content: "em breve"; font-size: 8px; position: absolute; top: 1px; right: 3px; color: #c9c4bc; }
+  nav.topnav button:not(.soon):not(.active):hover { color: #a05a2c; background: #f3efe9; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin: 16px 0; }
+  .kpi { background: #fff; border: 1px solid #e8e5e0; border-radius: 10px; padding: 12px 14px; }
+  .kpi .v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .kpi .l { font-size: 11px; color: #6b6862; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .cmp { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .kpi .cmp .pct { font-weight: 600; }
+  .up { color: #2f7d46; } .down { color: #b5482f; } .flat { color: #8a8680; }
+  .kpi .prev { font-size: 10px; color: #9b978f; margin-top: 1px; }
+
+  .card { background: #fff; border: 1px solid #e8e5e0; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .card .hint { font-size: 12px; color: #6b6862; margin-bottom: 10px; }
+  .chart-wrap { position: relative; height: 260px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #f0ede8; vertical-align: top; }
+  th { font-size: 11px; color: #6b6862; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; user-select: none; white-space: nowrap; }
+  th.num, td.num { text-align: right; }
+  td { font-size: 13px; }
+  .cap { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  a { color: #a05a2c; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #f3efe9; color: #6b6862; margin-right: 6px; }
+  .muted { color: #9b978f; }
+  #status { padding: 30px; text-align: center; color: #6b6862; }
+  .err { background: #fdf1f0; border: 1px solid #f0c9c5; color: #8c3a32; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+  .arrow { font-size: 9px; }
+  ul.findings { list-style: none; }
+  ul.findings li { padding: 8px 0; border-bottom: 1px solid #f0ede8; font-size: 13px; line-height: 1.45; display: flex; gap: 8px; }
+  ul.findings li:last-child { border-bottom: none; }
+  ul.findings .ic { flex: none; }
+  .soon-box { padding: 40px; text-align: center; color: #9b978f; font-size: 14px; }
+  .note-box { background: #f6f2ec; border: 1px solid #e8ddcd; color: #6b5b45; padding: 9px 11px; border-radius: 8px; font-size: 12px; margin-bottom: 10px; }
+  .postcard { border: 1px solid #e8e5e0; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .postcard .rank { font-weight: 700; color: #a05a2c; margin-right: 6px; }
+  .postcard .cap2 { font-size: 13px; font-weight: 600; margin: 2px 0 6px; }
+  .metrics { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: #444; margin: 6px 0; }
+  .metrics b { color: #1f1e1c; }
+  .metrics .na { color: #b8b4ad; }
+  .why { font-size: 12px; color: #3a382f; margin-top: 6px; line-height: 1.45; }
+  .why b { color: #1f1e1c; }
+  .replicate { font-size: 12px; color: #3a382f; margin-top: 4px; line-height: 1.45; }
+  .flag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #fff4e6; color: #a05a2c; border: 1px solid #f0dcc0; margin-left: 4px; }
+  .conf { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: 10px; }
+  .conf.alta { background: #e5f3ea; color: #2f7d46; }
+  .conf.media { background: #fdf5e3; color: #9a7b1f; }
+  .conf.baixa { background: #f2efeb; color: #8a8680; }
+  .themetag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: #eef1f0; color: #4a5a52; margin: 0 4px 2px 0; }
+  .geo-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
+  .geo-bar { height: 8px; background: #d9b48f; border-radius: 4px; }
+  .geo-name { width: 130px; flex: none; }
+  .geo-val { width: 130px; flex: none; text-align: right; color: #6b6862; }
+  h3 { font-weight: 600; }
+  .heat { border-collapse: collapse; width: 100%; }
+  .heat th, .heat td { border: 1px solid #eee7dc; padding: 6px 4px; text-align: center; font-size: 11px; }
+  .heat th { background: #f6f2ec; color: #6b6862; font-weight: 600; }
+  .heat td .c { font-weight: 700; }
+  .heat td .s { font-size: 9px; color: #6b6862; }
+  .cmp-tbl { width: 100%; border-collapse: collapse; }
+  .cmp-tbl th, .cmp-tbl td { padding: 6px 8px; border-bottom: 1px solid #f0ede8; font-size: 12.5px; text-align: right; }
+  .cmp-tbl th { color: #6b6862; font-size: 11px; text-transform: uppercase; }
+  .cmp-tbl td:first-child, .cmp-tbl th:first-child { text-align: left; }
+  .fmt-tbl { width: 100%; border-collapse: collapse; min-width: 640px; }
+  .fmt-tbl th, .fmt-tbl td { padding: 6px 8px; border-bottom: 1px solid #f0ede8; font-size: 12px; text-align: right; white-space: nowrap; }
+  .fmt-tbl th:first-child, .fmt-tbl td:first-child { text-align: left; }
+  .fmt-tbl th { color: #6b6862; font-size: 11px; }
+  /* ---- Relatório Executivo ---- */
+  .rep-btn { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; background: #a05a2c; color: #fff; border: none; border-radius: 8px; padding: 8px 14px; }
+  .rep-btn:hover { background: #8a4d24; }
+  .overlay { position: fixed; inset: 0; background: rgba(31,30,28,.45); z-index: 100; display: none; align-items: flex-start; justify-content: center; overflow: auto; padding: 24px; }
+  .overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; max-width: 460px; width: 100%; padding: 20px; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+  .modal h2 { font-size: 16px; margin-bottom: 4px; }
+  .modal label { font-size: 12px; color: #6b6862; display: block; margin: 10px 0 3px; }
+  .modal select, .modal input { font: inherit; padding: 7px 9px; border: 1px solid #e8e5e0; border-radius: 8px; width: 100%; }
+  .modal .row2 { display: flex; gap: 8px; }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .btn-sec { font: inherit; cursor: pointer; background: #f3efe9; border: 1px solid #e8e5e0; border-radius: 8px; padding: 8px 12px; }
+  .rep-toolbar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid #e8e5e0; padding: 10px 16px; display: flex; gap: 8px; justify-content: flex-end; z-index: 2; }
+  .rep-doc { max-width: 860px; margin: 0 auto; background: #fff; }
+  .rep-shell { background: #fff; border-radius: 12px; max-width: 900px; width: 100%; box-shadow: 0 8px 30px rgba(0,0,0,.2); }
+  /* documento */
+  .rp { color: #23211e; }
+  .rp-cover { background: linear-gradient(135deg,#3a2416,#a05a2c); color: #fff; padding: 54px 40px; border-radius: 12px 12px 0 0; }
+  .rp-cover .kick { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; opacity: .85; }
+  .rp-cover h1 { font-size: 30px; margin: 8px 0 2px; color: #fff; }
+  .rp-cover .sub2 { font-size: 15px; opacity: .92; }
+  .rp-cover .meta { margin-top: 22px; font-size: 13px; opacity: .9; }
+  .rp-body { padding: 28px 40px 44px; }
+  .rp-sec { margin-top: 30px; }
+  .rp-sec > h2 { font-size: 17px; color: #a05a2c; border-bottom: 2px solid #f0e6d8; padding-bottom: 5px; margin-bottom: 12px; }
+  .rp-bullets { list-style: none; }
+  .rp-bullets li { padding: 7px 0 7px 26px; position: relative; font-size: 13.5px; line-height: 1.5; border-bottom: 1px solid #f4f0ea; }
+  .rp-bullets li:before { content: "›"; position: absolute; left: 6px; color: #a05a2c; font-weight: 700; }
+  .rp-kpi { width: 100%; border-collapse: collapse; }
+  .rp-kpi th, .rp-kpi td { padding: 8px 10px; border-bottom: 1px solid #f0ede8; font-size: 13px; text-align: right; }
+  .rp-kpi th { color: #6b6862; font-size: 11px; text-transform: uppercase; background: #faf7f2; }
+  .rp-kpi td:first-child, .rp-kpi th:first-child { text-align: left; }
+  .rp-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rp-card { border: 1px solid #eee7dc; border-radius: 10px; padding: 12px 14px; font-size: 13px; }
+  .rp-card h4 { font-size: 12px; color: #6b6862; text-transform: uppercase; margin-bottom: 5px; }
+  .rp-q { font-weight: 600; font-size: 13px; margin-top: 10px; color: #23211e; }
+  .rp-a { font-size: 13px; color: #3a382f; line-height: 1.5; }
+  .pos { color: #2f7d46; font-weight: 600; } .neg { color: #b5482f; font-weight: 600; } .neu { color: #8a8680; font-weight: 600; }
+  .rp-pill { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 10px; background: #f3efe9; color: #6b6862; }
+  .rp-plan { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rp-note { font-size: 11px; color: #9b978f; }
+  @media print {
+    body > *:not(#reportOverlay) { display: none !important; }
+    #reportOverlay { position: static !important; background: #fff !important; padding: 0 !important; display: block !important; }
+    .rep-shell { box-shadow: none !important; max-width: none !important; }
+    .rep-toolbar { display: none !important; }
+    .rp-sec { break-inside: avoid; }
+    .rp-cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div>
+      <h1>Instagram — Brownie do Luiz <span class="muted">(@browniedoluiz)</span></h1>
+      <div class="sub" id="updated">Carregando…</div>
+    </div>
+    <button class="rep-btn" id="openReport">📄 Relatório Executivo</button>
+  </div>
+
+  <nav class="topnav" id="topnav"></nav>
+
+  <div id="status">Buscando dados frescos do Instagram…</div>
+
+  <!-- ================= VISÃO GERAL ================= -->
+  <div class="panel" id="panel-visao-geral">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:2px">Principais KPIs — últimos 30 dias</h2>
+    <div class="sub" style="margin-bottom:6px">Indicadores centrais de crescimento, alcance, visualizações, interações e produção de conteúdo, comparados ao período anterior quando houver dados disponíveis.</div>
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <h2>Evolução diária — últimos 30 dias</h2>
+      <div class="hint">Alcance e interações (linhas) e novos seguidores (barras). O dia atual ainda não fecha na API do Instagram.</div>
+      <div class="chart-wrap"><canvas id="chart30"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Principais achados</h2>
+      <div class="hint">Conclusões automáticas dos últimos 30 dias vs. os 30 dias anteriores — cada uma com o número que a sustenta.</div>
+      <ul class="findings" id="findings"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Alcance diário e novos seguidores — 14 dias</h2>
+      <div class="hint">Visão curta original (mantida).</div>
+      <div class="chart-wrap"><canvas id="chart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>Desempenho dos posts</h2>
+      <div class="hint">Últimos 30 dias — clique nos títulos das colunas para ordenar</div>
+      <table>
+        <thead>
+          <tr>
+            <th data-k="ts">Data <span class="arrow" id="a-ts"></span></th>
+            <th>Post</th>
+            <th class="num" data-k="reach">Alcance <span class="arrow" id="a-reach"></span></th>
+            <th class="num" data-k="eng">Engaj. <span class="arrow" id="a-eng"></span></th>
+            <th class="num" data-k="rate">Tx. engaj. <span class="arrow" id="a-rate"></span></th>
+            <th class="num" data-k="shares">Compart. <span class="arrow" id="a-shares"></span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ================= OBJETIVOS ================= -->
+  <div class="panel" id="panel-objetivos">
+    <div class="card">
+      <h2>Conteúdos por objetivo de marketing</h2>
+      <div class="hint">Escolha um objetivo para ver quais conteúdos dos últimos 30 dias foram mais adequados a ele, com o critério e os números que sustentam cada escolha.</div>
+      <select id="objSelect" style="font:inherit;padding:8px 10px;border:1px solid #e8e5e0;border-radius:8px;background:#fff;min-width:260px"></select>
+    </div>
+    <div id="objContent"></div>
+  </div>
+
+  <!-- ================= TESTES ================= -->
+  <div class="panel" id="panel-testes">
+    <div class="card">
+      <h2>Testes sugeridos com conteúdos já publicados</h2>
+      <div class="hint">Conteúdos existentes que valem ser reaproveitados no recurso de <b>Teste</b> do Instagram (ou como referência), ordenados pelo Índice de oportunidade. Não são ideias de conteúdo novo.</div>
+      <div id="testsList"></div>
+    </div>
+
+    <div class="card">
+      <h2>Geografia e expansão</h2>
+      <div class="note-box" id="geoNote"></div>
+      <div id="geoContent"></div>
+
+      <h3 style="font-size:13px;font-weight:600;margin:18px 0 4px">Conteúdos recomendados para expansão</h3>
+      <div class="hint">Conteúdos com potencial para campanhas, impulsionamento ou modo Teste em públicos fora da base atual.</div>
+      <div style="margin:8px 0 14px">
+        <label style="font-size:12px;color:#6b6862">Região prioritária do Comercial (opcional):
+          <input id="regiaoInput" type="text" placeholder="ex.: definir com o Comercial / Gerenciador de Anúncios"
+            style="font:inherit;padding:6px 9px;border:1px solid #e8e5e0;border-radius:8px;min-width:280px;margin-left:6px">
+        </label>
+      </div>
+      <div id="expansaoList"></div>
+
+      <h3 style="font-size:13px;font-weight:600;margin:18px 0 4px">Uso sugerido em mídia paga</h3>
+      <div class="hint">Estratégia de campanha mais coerente com cada conteúdo recomendado. Sem sugerir conversão/vendas (não conectadas) e sem definir orçamento, público ou região automaticamente.</div>
+      <div id="midiaList"></div>
+    </div>
+  </div>
+
+  <!-- ================= DIAGNÓSTICO ================= -->
+  <div class="panel" id="panel-diagnostico">
+    <div class="card">
+      <h2>Principal diagnóstico do período</h2>
+      <div id="diagHeadline" class="why" style="font-size:14px"></div>
+    </div>
+    <div class="card"><h2>O que funcionou</h2><div class="hint">Padrões consistentemente acima da média/mediana.</div><div id="diagFunc"></div></div>
+    <div class="card"><h2>O que não funcionou</h2><div class="hint">Padrões recorrentemente abaixo da média — considerando objetivo e amostra, não só alcance baixo.</div><div id="diagNao"></div></div>
+    <div class="card"><h2>O que pode ser melhorado</h2><div class="hint">Conteúdos que precisam continuar existindo, com ajustes sugeridos.</div><div id="diagMelhorar"></div></div>
+    <div class="card"><h2>Riscos estratégicos</h2><div id="diagRiscos"></div></div>
+    <div class="card"><h2>Diagnósticos complementares</h2><div id="diagCompl"></div></div>
+  </div>
+
+  <!-- ================= RECOMENDAÇÕES ================= -->
+  <div class="panel" id="panel-recomendacoes">
+    <div class="card">
+      <h2>Recomendações prioritárias</h2>
+      <div class="hint">Ações baseadas nos dados reais e nos diagnósticos do período, ordenadas por prioridade, confiança, impacto e esforço. Cada uma cita os números e liga a um diagnóstico.</div>
+      <div style="margin-top:6px"><span class="muted" style="font-size:11px">Filtrar por grupo:</span> <span id="recFilters"></span></div>
+    </div>
+    <div id="recList"></div>
+  </div>
+
+  <!-- ================= STORIES ================= -->
+  <div class="panel" id="panel-stories">
+    <div class="card">
+      <div class="note-box">⏱️ A API atual não oferece histórico contínuo de Stories. Os dados abaixo representam somente os Stories ainda disponíveis nas últimas 24 a 48 horas e não devem ser interpretados como tendência mensal.</div>
+      <div id="storiesKpis" class="kpis"></div>
+    </div>
+    <div class="card"><h2>Stories recentes</h2><div class="hint">Clique nos títulos para ordenar. Campos ausentes na fonte aparecem como indisponíveis.</div>
+      <table><thead><tr>
+        <th data-sk="ts">Data/hora <span class="arrow" id="s-ts"></span></th>
+        <th class="num" data-sk="reach">Alcance <span class="arrow" id="s-reach"></span></th>
+        <th class="num" data-sk="views">Views <span class="arrow" id="s-views"></span></th>
+        <th class="num" data-sk="replies">Respostas <span class="arrow" id="s-replies"></span></th>
+        <th class="num" data-sk="shares">Compart. <span class="arrow" id="s-shares"></span></th>
+        <th class="num" data-sk="fwd">Avanços <span class="arrow" id="s-fwd"></span></th>
+        <th class="num" data-sk="back">Voltas <span class="arrow" id="s-back"></span></th>
+        <th class="num" data-sk="exits">Saídas <span class="arrow" id="s-exits"></span></th>
+        <th class="num" data-sk="inter">Interações <span class="arrow" id="s-inter"></span></th>
+      </tr></thead><tbody id="storiesRows"></tbody></table>
+      <div class="muted" style="font-size:11px;margin-top:6px">Cliques em link e tipo de Story (enquete/caixinha/quiz/sticker) não são expostos como campos estruturados nesta fonte → <b>Dado indisponível na fonte</b>.</div>
+    </div>
+    <div class="card"><h2>Leitura da sequência do dia</h2><div id="storiesSeq"></div></div>
+    <div class="card"><h2>Recomendações para Stories</h2><div class="note-box">Recomendação baseada em janela curta de 24 a 48 horas — não é conclusão mensal.</div><div id="storiesRecs"></div></div>
+    <div class="card"><h2>Histórico local de Stories</h2><div id="storiesHist"></div></div>
+  </div>
+
+  <!-- ================= COLLABS ================= -->
+  <div class="panel" id="panel-collabs">
+    <div class="card">
+      <div class="note-box">🤝 A API não fornece flag oficial de Collab. A identificação abaixo é <b>classificação automática baseada em legenda e menções</b> — não é certeza. Estados: Provável / Possível / Não identificado.</div>
+      <div id="collabCompare"></div>
+    </div>
+    <div class="card"><h2>Rankings de Collabs (prováveis/possíveis)</h2><div id="collabRanks"></div></div>
+    <div class="card"><h2>Vale manter ou retomar Collabs?</h2><div id="collabDiag"></div></div>
+  </div>
+
+  <!-- ================= REELS ================= -->
+  <div class="panel" id="panel-reels">
+    <div class="card">
+      <div class="note-box">🎬 A fonte oferece alcance, views, interações e watch time por Reel, mas <b>não</b> oferece duração, retenção, taxa de conclusão nem seguidores gerados para Reels — esses campos não são exibidos.</div>
+      <div id="reelsKpis" class="kpis"></div>
+    </div>
+    <div class="card"><h2>Ranking de Reels</h2><div class="hint">Clique nos títulos para ordenar.</div>
+      <table><thead><tr>
+        <th data-rk="ts">Data <span class="arrow" id="r-ts"></span></th>
+        <th>Reel</th>
+        <th class="num" data-rk="reach">Alcance <span class="arrow" id="r-reach"></span></th>
+        <th class="num" data-rk="views">Views <span class="arrow" id="r-views"></span></th>
+        <th class="num" data-rk="watch">Watch médio <span class="arrow" id="r-watch"></span></th>
+        <th class="num" data-rk="eng">Interações <span class="arrow" id="r-eng"></span></th>
+        <th class="num" data-rk="rate">Tx.eng <span class="arrow" id="r-rate"></span></th>
+        <th class="num" data-rk="shares">Compart. <span class="arrow" id="r-shares"></span></th>
+        <th class="num" data-rk="saved">Salvam. <span class="arrow" id="r-saved"></span></th>
+      </tr></thead><tbody id="reelsRows"></tbody></table>
+    </div>
+    <div class="card"><h2>Padrões dos Reels que funcionaram</h2><div class="hint">Por tema detectado na legenda (classificação automática). Padrões com 1 Reel são marcados como hipótese.</div><div id="reelsPatterns"></div></div>
+    <div class="card"><h2>Leitura de watch time</h2><div class="note-box">Watch time alto não significa necessariamente maior retenção — a duração do vídeo não está disponível na fonte.</div><div id="reelsWatch"></div></div>
+    <div class="card"><h2>Reels que merecem ser replicados como estratégia</h2><div class="hint">Não é copiar o vídeo — é reaproveitar o padrão. Integra com Objetivos, Testes e Recomendações.</div><div id="reelsReplicate"></div></div>
+  </div>
+
+  <!-- ================= CONTEÚDOS ================= -->
+  <div class="panel" id="panel-conteudos">
+    <div class="card">
+      <h2>Biblioteca de conteúdos</h2>
+      <div class="hint">Todos os posts dos últimos 30 dias, filtráveis. Clique numa linha para ver detalhes, classificações e em quais abas o post aparece. Classificações de tema/objetivo/Collab são automáticas — editáveis manualmente (salvas só no seu navegador).</div>
+      <div id="contFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;align-items:center"></div>
+    </div>
+    <div class="card">
+      <table><thead><tr>
+        <th data-ck="ts">Data <span class="arrow" id="c-ts"></span></th>
+        <th>Conteúdo</th>
+        <th class="num" data-ck="reach">Alcance <span class="arrow" id="c-reach"></span></th>
+        <th class="num" data-ck="views">Views <span class="arrow" id="c-views"></span></th>
+        <th class="num" data-ck="eng">Interações <span class="arrow" id="c-eng"></span></th>
+        <th class="num" data-ck="rate">Tx.eng <span class="arrow" id="c-rate"></span></th>
+        <th class="num" data-ck="shares">Compart. <span class="arrow" id="c-shares"></span></th>
+        <th class="num" data-ck="saved">Salvam. <span class="arrow" id="c-saved"></span></th>
+      </tr></thead><tbody id="contRows"></tbody></table>
+      <div id="contCount" class="muted" style="font-size:11px;margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- ================= COMPARATIVOS ================= -->
+  <div class="panel" id="panel-comparativos">
+    <div class="card">
+      <h2>Comparativo de períodos</h2>
+      <div class="hint">Escolha o tipo de comparação. Campos indisponíveis no período anterior são sinalizados — nunca tratados como zero.</div>
+      <div style="margin-top:6px">
+        <select id="cmpMode" style="font:inherit;padding:7px 10px;border:1px solid #e8e5e0;border-radius:8px">
+          <option value="30d">Últimos 30 dias × 30 dias anteriores</option>
+          <option value="mtd">Mês atual × mês anterior (período equivalente)</option>
+          <option value="mtdfull">Mês atual (parcial) × mês anterior completo</option>
+        </select>
+        <span id="cmpRange" class="muted" style="font-size:11px;margin-left:8px"></span>
+      </div>
+    </div>
+    <div class="card"><div id="cmpTable"></div></div>
+    <div class="card"><h2>Gráfico comparativo</h2><div class="hint">Escala logarítmica para caber alcance, views, interações e nº de posts no mesmo eixo.</div><div class="chart-wrap"><canvas id="cmpChart"></canvas></div></div>
+    <div class="card"><h2>Principal mudança do período</h2><div id="cmpMain" class="why" style="font-size:14px"></div></div>
+    <div class="card"><h2>Outros achados</h2><div id="cmpFindings"></div></div>
+  </div>
+
+  <!-- ================= HORÁRIOS ================= -->
+  <div class="panel" id="panel-horarios">
+    <div class="card">
+      <div class="note-box" id="tzNote">🕐 Horários exibidos no fuso de Brasília (America/Sao_Paulo). Timestamps da fonte vêm em UTC e são convertidos uma única vez.</div>
+      <div class="hint">Posts dos últimos 30 dias. Filtro opcional por formato. A cor do mapa representa a métrica escolhida.</div>
+      <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="hrFmt" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px"><option value="">Formato: todos</option></select>
+        <select id="hrMetric" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px">
+          <option value="reach">Cor: alcance médio</option><option value="eng">Cor: engajamento médio</option><option value="shares">Cor: compartilhamentos médios</option>
+        </select>
+      </div>
+    </div>
+    <div class="card"><h2>Mapa dia × faixa horária</h2><div id="hrHeat"></div>
+      <div class="muted" style="font-size:11px;margin-top:8px">Faixas: madrugada 0–5h · manhã 6–11h · início da tarde 12–14h · fim da tarde 15–17h · noite 18–23h. Número em cada célula = quantidade de posts.</div>
+    </div>
+    <div class="card"><h2>Publicação × desempenho</h2><div id="hrSummary"></div></div>
+    <div class="card"><h2>Janelas com melhor desempenho</h2><div id="hrWindows"></div></div>
+    <div class="card"><h2>Horários que ainda precisam ser testados</h2><div id="hrGaps"></div></div>
+    <div class="card"><div class="note-box">O desempenho pode estar relacionado também ao tema, formato, Collab e força do conteúdo. Horário não deve ser interpretado isoladamente como causa do resultado.</div></div>
+  </div>
+
+  <!-- ================= FORMATOS ================= -->
+  <div class="panel" id="panel-formatos">
+    <div class="card">
+      <h2>Desempenho por formato</h2>
+      <div class="note-box">Seguidores gerados não são reportados igualmente para Reels; watch time só existe para Reels. Campos indisponíveis não são tratados como zero.</div>
+      <div id="fmtParticipacao"></div>
+    </div>
+    <div class="card"><h2>KPIs por formato</h2><div style="overflow-x:auto" id="fmtTable"></div></div>
+    <div class="card"><h2>Rankings estratégicos</h2><div id="fmtRanks"></div></div>
+    <div class="card"><h2>Leitura estratégica por formato</h2><div id="fmtLeitura"></div></div>
+    <div class="card"><h2>Volume publicado versus retorno</h2><div id="fmtVolume"></div></div>
+  </div>
+
+  <!-- ================= ÁREAS FUTURAS (em breve) ================= -->
+  <div class="panel" id="panel-soon"><div class="soon-box">Esta área será construída em uma próxima etapa.</div></div>
+
+  <!-- ================= MODAL RELATÓRIO ================= -->
+  <div class="overlay" id="reportModal">
+    <div class="modal">
+      <h2>Relatório Executivo</h2>
+      <div class="rp-note">Comparação sempre contra o período imediatamente anterior de mesma duração. Máximo de 30 dias por relatório.</div>
+      <label>Período</label>
+      <select id="repPeriod">
+        <option value="lastmonth">Último mês completo</option>
+        <option value="thismonth">Mês atual (até ontem)</option>
+        <option value="custom">Período personalizado</option>
+      </select>
+      <div id="repCustom" style="display:none">
+        <div class="row2">
+          <div style="flex:1"><label>De</label><input type="date" id="repFrom"></div>
+          <div style="flex:1"><label>Até</label><input type="date" id="repTo"></div>
+        </div>
+      </div>
+      <div id="repSelected" class="rp-note" style="margin-top:10px;font-size:12px;color:#3a382f"></div>
+      <div id="repWarn" class="note-box" style="display:none;margin-top:10px"></div>
+      <div id="repLast" class="rp-note" style="margin-top:10px"></div>
+      <div class="actions">
+        <button class="btn-sec" id="repCancel">Cancelar</button>
+        <button class="rep-btn" id="repGenerate">Gerar relatório</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= OVERLAY DOCUMENTO ================= -->
+  <div class="overlay" id="reportOverlay" style="padding:0">
+    <div class="rep-shell">
+      <div class="rep-toolbar">
+        <button class="btn-sec" id="repPrint">🖨️ Exportar PDF</button>
+        <button class="btn-sec" id="repClose">Fechar</button>
+      </div>
+      <div class="rep-doc" id="reportDoc"></div>
+    </div>
+  </div>
+
+<script>
+/* =============================================================
+   PONTE DE DADOS PARA GITHUB PAGES (fora do Cowork)
+   Recria window.cowork.callMcpTool, mas em vez de mandar a consulta
+   completa, TRADUZ cada chamada do painel para o NOME de uma operação
+   fechada (o Worker é quem conhece connector, conta, fields e datas).
+   O navegador só envia { op, date_from?, date_to? }.
+   O restante do painel NÃO muda.
+   -> Troque PROXY_BASE pela URL do SEU Worker (sem barra no final).
+   ============================================================= */
+(function () {
+  var PROXY_BASE = "https://SEU-WORKER.SEU-SUBDOMINIO.workers.dev"; // <-- EDITE AQUI
+
+  // Traduz os argumentos antigos (connector/fields/datas) para uma operação nomeada.
+  function pickOp(args) {
+    var f = Array.isArray(args.fields) ? args.fields : String(args.fields || "").split(",");
+    var has = function (k) { return f.indexOf(k) !== -1; };
+    var preset = args.date_preset;
+    var range = (args.date_from || args.date_to) ? { date_from: args.date_from, date_to: args.date_to } : null;
+    if (has("username")) return { op: "profile" };
+    if (has("audience_country_name")) return { op: "audience" };
+    if (has("story_id")) return { op: "stories" };
+    if (has("media_profile_visits") || has("media_reel_total_watch_time")) return { op: "posts_enriched" };
+    if (has("media_caption") && preset === "last_30d") return { op: "posts_current" };
+    if ((has("media_reach") || has("media_caption")) && range) return assign({ op: "posts_range" }, range);
+    if (has("follower_count") && preset === "last_14d") return { op: "trend_14d" };
+    if (has("total_interactions") && has("follower_count") && preset === "last_30d") return { op: "overview_current" };
+    if (has("follower_count") && range && !has("total_interactions")) return assign({ op: "followers_range" }, range);
+    if (has("total_interactions") && range) return assign({ op: "overview_range" }, range);
+    return null;
+  }
+  function assign(a, b) { for (var k in b) a[k] = b[k]; return a; }
+
+  window.cowork = window.cowork || {};
+  if (!window.cowork.callMcpTool) {
+    window.cowork.callMcpTool = async function (tool, args) {
+      var payload = pickOp(args || {});
+      if (!payload) return { isError: true, content: [{ text: "Chamada não mapeada para uma operação autorizada." }] };
+      try {
+        var res = await fetch(PROXY_BASE + "/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        var json = await res.json();
+        if (!res.ok) return { isError: true, content: [{ text: (json && json.error) || ("HTTP " + res.status) }] };
+        return { content: [{ text: JSON.stringify({ result: json.result || json.data || [] }) }] };
+      } catch (e) {
+        return { isError: true, content: [{ text: "Falha ao contatar o proxy: " + e.message }] };
+      }
+    };
+  }
+})();
+</script>
+
+<script>
+const TOOL = 'mcp__8cd3df68-70a0-47b8-bc26-3ca7a85cef56__get_data';
+const nf = new Intl.NumberFormat('pt-BR');
+const pf = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+let posts = [], sortKey = localStorage.getItem('ig_sort') || 'eng', sortDir = +(localStorage.getItem('ig_dir') || -1);
+
+// ---- Navegação ----
+const NAV = [
+  ['visao-geral', 'KPIs e visão geral', true],
+  ['comparativos', 'Comparativos', true],
+  ['horarios', 'Horários', true],
+  ['formatos', 'Formatos', true],
+  ['conteudos', 'Conteúdos', true],
+  ['reels', 'Reels', true],
+  ['collabs', 'Collabs', true],
+  ['stories', 'Stories', true],
+  ['diagnostico', 'Diagnóstico', true],
+  ['objetivos', 'Objetivos', true],
+  ['recomendacoes', 'Recomendações', true],
+  ['testes', 'Testes', true]
+];
+const READY_PANELS = ['visao-geral', 'objetivos', 'testes', 'recomendacoes', 'diagnostico', 'stories', 'collabs', 'reels', 'conteudos', 'comparativos', 'horarios', 'formatos'];
+const TAB_ONCE = {};
+function buildNav() {
+  const nav = document.getElementById('topnav');
+  NAV.forEach(([id, label, ready]) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (ready) {
+      b.className = id === 'visao-geral' ? 'active' : ''; b.dataset.id = id;
+      b.addEventListener('click', () => selectTab(id, b));
+    } else {
+      b.className = 'soon'; b.disabled = true; b.title = 'Será ativado em próxima etapa';
+    }
+    nav.appendChild(b);
+  });
+}
+function selectTab(id, btn) {
+  document.querySelectorAll('nav.topnav button:not(.soon)').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active');
+  READY_PANELS.forEach(pid => {
+    const el = document.getElementById('panel-' + pid);
+    if (el) el.classList.toggle('active', pid === id);
+  });
+  if (TAB_ONCE[id]) { try { TAB_ONCE[id](); } catch (e) {} TAB_ONCE[id] = null; }
+}
+
+function unwrap(r) {
+  if (r.isError) throw new Error(r.content && r.content[0] ? r.content[0].text : 'Erro na chamada MCP');
+  const data = r.structuredContent ?? JSON.parse(r.content[0].text);
+  return data.result ?? data;
+}
+function ymd(d) { return d.toISOString().slice(0, 10); }
+
+async function fetchData() {
+  // Janela atual: preset last_30d (o único que aceita follower_count — limitado a 30d pela API).
+  // Janela anterior: intervalo de datas SEM follower_count (histórico de seguidores > 30d indisponível na fonte).
+  const today = new Date();
+  const curStart = new Date(today); curStart.setDate(curStart.getDate() - 30);
+  const prevEnd = new Date(curStart); prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate() - 29);
+  const mediaFields = ['timestamp','media_caption','media_type','media_permalink','media_reach','media_engagement','media_like_count','media_comments_count','media_saved','media_shares'];
+
+  const [daily14, media, profile, dailyCur, dailyPrev, mediaPrev, mediaExtra, country, stories] = await Promise.all([
+    // --- 3 consultas originais preservadas, intactas ---
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['date','reach','follower_count'], date_preset: 'last_14d' }),
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: mediaFields, date_preset: 'last_30d' }),
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['username','followers_count','media_count'] }),
+    // --- consultas de período da Etapa 1 (comparativo) ---
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['date','reach','views','total_interactions','follower_count'], date_preset: 'last_30d' }),
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['date','reach','views','total_interactions'], date_from: ymd(prevStart), date_to: ymd(prevEnd) }),
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['timestamp','media_type','media_reach','media_engagement','media_views','media_shares','media_saved','media_comments_count','media_like_count'], date_from: ymd(prevStart), date_to: ymd(prevEnd) }),
+    // --- 2 consultas novas da Etapa 2 (indispensáveis: views/visitas/seguidores por post + audiência por país) ---
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['timestamp','media_permalink','media_type','media_views','media_profile_visits','media_follows','media_reel_total_watch_time','media_reel_avg_watch_time'], date_preset: 'last_30d' }),
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['audience_country_name','audience_country_size'] }),
+    // --- 1 consulta nova da Etapa 3 (indispensável: Stories das últimas 24-48h) ---
+    window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['story_id','story_timestamp','story_reach','story_views','story_replies','story_shares','story_exits','story_taps_forward','story_taps_back','story_swipe_forward','story_interactions'], date_preset: 'last_2d' })
+  ]);
+  const dCur = unwrap(dailyCur);
+  const curDates = dCur.map(r => r.date).sort();
+  return {
+    daily14: unwrap(daily14), media: unwrap(media), profile: unwrap(profile)[0] || {},
+    dailyCur: dCur, dailyPrev: unwrap(dailyPrev), mediaPrev: unwrap(mediaPrev),
+    mediaExtra: unwrap(mediaExtra), country: unwrap(country), stories: unwrap(stories),
+    range: { curStart: curDates[0] || ymd(curStart), curEnd: curDates[curDates.length - 1] || ymd(today), prevStart: ymd(prevStart), prevEnd: ymd(prevEnd) }
+  };
+}
+
+const sum = (arr, k) => arr.reduce((s, r) => s + (r[k] || 0), 0);
+
+function trendClass(pct, absCur, absPrev) {
+  if (absPrev === 0) return 'flat';
+  if (Math.abs(pct) < 2) return 'flat';
+  return pct > 0 ? 'up' : 'down';
+}
+function kpiCard(label, curVal, prevVal, fmt, opts) {
+  opts = opts || {};
+  const hasPrev = prevVal !== null && prevVal !== undefined && !opts.noCompare;
+  let cmp = '';
+  if (hasPrev) {
+    const pct = prevVal === 0 ? 0 : ((curVal - prevVal) / prevVal) * 100;
+    const cls = prevVal === 0 ? 'flat' : trendClass(pct, curVal, prevVal);
+    const arrow = cls === 'up' ? '▲' : cls === 'down' ? '▼' : '▬';
+    cmp = `<div class="cmp ${cls}"><span>${arrow}</span><span class="pct">${prevVal === 0 ? '—' : pf(pct)}</span></div>
+           <div class="prev">período anterior: ${fmt(prevVal)}</div>`;
+  } else if (opts.note) {
+    cmp = `<div class="prev">${opts.note}</div>`;
+  }
+  return `<div class="kpi"><div class="l">${label}</div><div class="v">${fmt(curVal)}</div>${cmp}</div>`;
+}
+
+function renderKpis(d) {
+  const c = d.dailyCur, p = d.dailyPrev;
+  const reachCur = sum(c, 'reach'), reachPrev = sum(p, 'reach');
+  const viewsCur = sum(c, 'views'), viewsPrev = sum(p, 'views');
+  const intCur = sum(c, 'total_interactions'), intPrev = sum(p, 'total_interactions');
+  const followCur = sum(c, 'follower_count'), followPrev = null; // API só expõe follower_count nos últimos 30d
+  const postsCur = d.media.length, postsPrev = d.mediaPrev.length;
+  const engCur = reachCur ? (intCur / reachCur) * 100 : 0;
+  const engPrev = reachPrev ? (intPrev / reachPrev) * 100 : 0;
+  const money = n => nf.format(Math.round(n));
+  document.getElementById('kpis').innerHTML =
+    kpiCard('Seguidores atuais', d.profile.followers_count || 0, null, money, { note: 'total acumulado (sem histórico diário)' }) +
+    kpiCard('Novos seguidores (30d)', followCur, followPrev, n => '+' + money(n), { note: 'comparação indisponível: histórico de seguidores limitado a 30 dias' }) +
+    kpiCard('Alcance total (30d)', reachCur, reachPrev, money) +
+    kpiCard('Visualizações totais (30d)', viewsCur, viewsPrev, money) +
+    kpiCard('Interações totais (30d)', intCur, intPrev, money) +
+    kpiCard('Taxa de engajamento (30d)', engCur, engPrev, n => n.toFixed(1) + '%') +
+    kpiCard('Posts publicados (30d)', postsCur, postsPrev, money);
+  // guardar p/ achados
+  d._agg = { reachCur, reachPrev, viewsCur, viewsPrev, intCur, intPrev, followCur, followPrev, postsCur, postsPrev, engCur, engPrev };
+}
+
+function renderFindings(d) {
+  const a = d._agg, out = [];
+  const pct = (cur, prev) => (prev === null || prev === undefined || prev === 0) ? null : ((cur - prev) / prev) * 100;
+  const line = (icon, txt) => out.push(`<li><span class="ic">${icon}</span><span>${txt}</span></li>`);
+
+  const rp = pct(a.reachCur, a.reachPrev);
+  if (rp !== null) line(rp >= 0 ? '📈' : '📉',
+    `Alcance ${rp >= 0 ? 'subiu' : 'caiu'} <b>${pf(rp)}</b> — ${nf.format(a.reachCur)} vs. ${nf.format(a.reachPrev)} contas no período anterior.`);
+
+  const ip = pct(a.intCur, a.intPrev);
+  if (ip !== null) line(ip >= 0 ? '💬' : '📉',
+    `Interações ${ip >= 0 ? 'cresceram' : 'recuaram'} <b>${pf(ip)}</b> — ${nf.format(a.intCur)} vs. ${nf.format(a.intPrev)}.`);
+
+  line('👥',
+    `Novos seguidores nos últimos 30 dias: <b>+${nf.format(a.followCur)}</b>. <span class="muted">(comparação com período anterior indisponível — a fonte só guarda seguidores/dia por 30 dias)</span>`);
+
+  // Outlier: melhor post vs mediana de alcance
+  if (posts.length) {
+    const reaches = posts.map(x => x.reach).sort((x, y) => x - y);
+    const median = reaches[Math.floor(reaches.length / 2)];
+    const best = posts.slice().sort((x, y) => y.reach - x.reach)[0];
+    if (median > 0 && best.reach >= 1.5 * median) {
+      const mult = (best.reach / median).toFixed(1);
+      line('⭐', `Um post puxou o resultado: "${(best.caption || 'post').slice(0, 40)}" alcançou <b>${nf.format(best.reach)}</b> — ${mult}× a mediana (${nf.format(median)}) dos ${posts.length} posts. <a href="${best.link}" target="_blank">ver</a>`);
+    }
+  }
+
+  // Volume x resultado
+  if (a.postsPrev > 0 && rp !== null) {
+    const volPct = ((a.postsCur - a.postsPrev) / a.postsPrev) * 100;
+    if (volPct >= 10 && rp < volPct - 5) {
+      line('⚠️', `Volume subiu <b>${pf(volPct)}</b> (${a.postsCur} vs. ${a.postsPrev} posts), mas o alcance só variou ${pf(rp)} — mais publicações não geraram resultado proporcional.`);
+    }
+  }
+
+  document.getElementById('findings').innerHTML = out.slice(0, 5).join('') ||
+    '<li class="muted">Dados insuficientes para gerar achados neste período.</li>';
+}
+
+function kpi(l, v, d) { return `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div>${d ? `<div class="prev">${d}</div>` : ''}</div>`; }
+
+function renderChart30(d) {
+  const rows = d.dailyCur.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const labels = rows.map(r => r.date.slice(5).split('-').reverse().join('/'));
+  new Chart(document.getElementById('chart30'), {
+    data: {
+      labels,
+      datasets: [
+        { type: 'line', label: 'Alcance', data: rows.map(r => r.reach), borderColor: '#a05a2c', backgroundColor: 'rgba(160,90,44,.06)', fill: true, tension: .3, yAxisID: 'y', pointRadius: 1.5 },
+        { type: 'line', label: 'Interações', data: rows.map(r => r.total_interactions), borderColor: '#2f7d46', backgroundColor: 'rgba(47,125,70,.05)', fill: false, tension: .3, yAxisID: 'y1', pointRadius: 1.5 },
+        { type: 'bar', label: 'Novos seguidores', data: rows.map(r => r.follower_count), backgroundColor: '#d9b48f', yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        y: { position: 'left', title: { display: true, text: 'Alcance', font: { size: 10 } }, ticks: { font: { size: 10 } } },
+        y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Interações / seguidores', font: { size: 10 } }, ticks: { font: { size: 10 } } },
+        x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } }
+      }
+    }
+  });
+}
+
+function renderChart14(daily) {
+  const labels = daily.map(r => r.date.slice(5).split('-').reverse().join('/'));
+  new Chart(document.getElementById('chart'), {
+    data: {
+      labels,
+      datasets: [
+        { type: 'line', label: 'Alcance', data: daily.map(r => r.reach), borderColor: '#a05a2c', backgroundColor: 'rgba(160,90,44,.08)', fill: true, tension: .3, yAxisID: 'y', pointRadius: 2 },
+        { type: 'bar', label: 'Novos seguidores', data: daily.map(r => r.follower_count), backgroundColor: '#d9b48f', yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        y: { position: 'left', ticks: { font: { size: 10 } } },
+        y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { size: 10 } } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderTable() {
+  const dirs = { ts: p => p.ts, reach: p => p.reach, eng: p => p.eng, rate: p => p.rate, shares: p => p.shares };
+  const sorted = posts.slice().sort((a, b) => (dirs[sortKey](a) - dirs[sortKey](b)) * sortDir);
+  document.querySelectorAll('.arrow').forEach(el => el.textContent = '');
+  const ind = document.getElementById('a-' + sortKey);
+  if (ind) ind.textContent = sortDir < 0 ? '▼' : '▲';
+  document.getElementById('rows').innerHTML = sorted.map(p => `
+    <tr>
+      <td class="muted" style="white-space:nowrap">${p.dateStr}</td>
+      <td class="cap"><span class="tag">${p.type}</span><a href="${p.link}" target="_blank" title="${p.caption.replace(/"/g, '&quot;')}">${p.caption || '(sem legenda)'}</a></td>
+      <td class="num">${nf.format(p.reach)}</td>
+      <td class="num"><b>${nf.format(p.eng)}</b></td>
+      <td class="num">${(p.rate * 100).toFixed(1)}%</td>
+      <td class="num">${nf.format(p.shares)}</td>
+    </tr>`).join('');
+}
+
+document.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.k;
+  if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; }
+  localStorage.setItem('ig_sort', sortKey); localStorage.setItem('ig_dir', sortDir);
+  renderTable();
+}));
+
+// ============================================================
+// ETAPA 2 — Objetivos, Testes e Geografia
+// ============================================================
+const median = arr => { if (!arr.length) return 0; const s = arr.slice().sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+let MED = {};
+function computeMedians() {
+  MED = {
+    reach: median(posts.map(p => p.reach)),
+    views: median(posts.map(p => p.views)),
+    shares: median(posts.map(p => p.shares)),
+    saved: median(posts.map(p => p.saved)),
+    eng: median(posts.map(p => p.eng)),
+    comments: median(posts.map(p => p.comments))
+  };
+}
+
+// --- Classificação automática por legenda (sinalizada como tal) ---
+const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const THEME_RULES = [
+  ['Receita', ['receita', 'brigadeiro', 'ingrediente', 'passo:', '1o passo', 'faca ', 'modo de']],
+  ['Bastidores/Processo', ['bastidor', 'equipe', 'escritorio', 'trabalho em', 'producao', 'industria', 'degustador', 'chefe']],
+  ['Humor', ['rsss', 'kkk', 'haha', '🤭', '😂', '😬', '🙃']],
+  ['Novidade/Lançamento', ['vem ai', 'em breve', 'novidade', 'lancamento', 'aguardem', 'proximos capitulos']],
+  ['Produto', ['achocolatado', 'brownie', 'pistache', 'lata', 'sabor', 'chocolate', 'creme de avela', 'combo', 'pizza']],
+  ['Pergunta direta', ['?']],
+  ['Data comemorativa/Evento', ['copa', 'festa junina', 'junina', 'dia do', 'natal', 'pascoa', 'brasil x', 'jogo', 'neymar', 'endrick', 'mundial']],
+  ['Prova social', ['comentario', 'feedback', 'review', 'depoimento', 'amamos os comentarios']]
+];
+function classifyThemes(caption) {
+  const c = norm(caption);
+  const tags = [];
+  THEME_RULES.forEach(([label, kws]) => { if (kws.some(k => c.includes(k))) tags.push(label); });
+  return tags;
+}
+// Estimativa de "atemporal": sem gancho de evento/data/contexto específico
+const EVENT_KWS = ['copa', 'festa junina', 'junina', 'dia do', 'natal', 'pascoa', 'brasil x', 'jogo', 'neymar', 'endrick', 'mundial', 'hoje', 'agora'];
+const LOCAL_KWS = ['rio de janeiro', 'carioca', ' rj', 'niteroi', 'ifood rio'];
+function isAtemporal(p) {
+  const c = norm(p.fullCaption);
+  return !EVENT_KWS.some(k => c.includes(k));
+}
+function isLocalDependent(p) {
+  const c = norm(p.fullCaption);
+  return LOCAL_KWS.some(k => c.includes(k));
+}
+
+// --- Objetivos ---
+const OBJECTIVES = [
+  ['reconhecimento', 'Reconhecimento de marca'],
+  ['alcance', 'Aumentar alcance'],
+  ['seguidores', 'Ganhar seguidores'],
+  ['compartilhamentos', 'Gerar compartilhamentos'],
+  ['salvamentos', 'Gerar salvamentos'],
+  ['engajamento', 'Aumentar engajamento'],
+  ['comunidade', 'Fortalecer comunidade'],
+  ['produto', 'Divulgar produto'],
+  ['vendas', 'Apoiar vendas'],
+  ['testar', 'Testar novos públicos']
+];
+const AUTO_FLAG = '<span class="flag">classificação automática pela legenda</span>';
+
+// --- Cartão explicativo por objetivo (apenas visual, textos fixos) ---
+const OBJ_GUIDE = {
+  reconhecimento: {
+    signif: 'Fazer com que mais pessoas conheçam o Brownie do Luiz, reconheçam a marca e se lembrem dela quando pensarem em brownie, presente, sobremesa ou produto para eventos e empresas.',
+    quando: 'Escolha este objetivo quando a prioridade for ampliar a presença da marca, alcançar pessoas que ainda não a conhecem, entrar em novas regiões ou preparar o público para lançamentos e campanhas futuras.',
+    avalia: 'Principalmente por alcance, visualizações e capacidade de distribuição dos conteúdos.',
+    atencao: 'Um conteúdo pode gerar muito reconhecimento mesmo sem trazer muitos comentários, seguidores ou vendas imediatas.',
+    exemplo: 'Este objetivo faz sentido quando a marca quer se tornar mais conhecida fora do Rio de Janeiro, fortalecer sua presença em São Paulo ou preparar a expansão para outras regiões.'
+  },
+  alcance: {
+    signif: 'Fazer com que uma publicação chegue ao maior número possível de pessoas, incluindo quem ainda não segue o perfil.',
+    quando: 'Escolha este objetivo quando a prioridade for ampliar rapidamente a distribuição de uma campanha, produto, novidade ou mensagem.',
+    avalia: 'Principalmente pelo alcance total, visualizações e desempenho em relação à média e à mediana dos demais posts.',
+    atencao: 'Alcance alto não significa necessariamente aumento de seguidores, engajamento ou vendas.',
+    exemplo: 'Pode ser usado em lançamentos, datas comemorativas, entrada em novos mercados ou conteúdos com potencial de circular para além da base atual.'
+  },
+  seguidores: {
+    signif: 'Aumentar a quantidade de pessoas que escolhem acompanhar o perfil e que poderão ser impactadas novamente pelos próximos conteúdos da marca.',
+    quando: 'Escolha este objetivo quando a empresa quer ampliar sua comunidade, fortalecer o crescimento orgânico e construir uma base própria para futuros lançamentos, campanhas e relacionamento.',
+    avalia: 'Pelos seguidores gerados por conteúdo, quando o dado existir, e por sinais de interesse como visitas ao perfil.',
+    atencao: 'Nem todo conteúdo com muito alcance gera seguidores. A pessoa pode assistir, gostar e seguir adiante sem decidir acompanhar a marca.',
+    exemplo: 'Esse objetivo é importante quando a marca quer crescer sua base antes de um lançamento, aumentar sua presença em novas regiões ou depender menos apenas de mídia paga.'
+  },
+  compartilhamentos: {
+    signif: 'Criar conteúdos que as pessoas sintam vontade de enviar para amigos, familiares ou colegas.',
+    quando: 'Escolha este objetivo quando a prioridade for ampliar a distribuição orgânica e fazer o conteúdo circular para além da audiência atual.',
+    avalia: 'Pelo número de compartilhamentos e pela proporção de compartilhamentos em relação ao alcance.',
+    atencao: 'Conteúdos compartilháveis nem sempre são os que mais vendem ou geram comentários, mas podem ser muito eficientes para alcançar novos públicos.',
+    exemplo: 'Humor, situações identificáveis, novidades curiosas, receitas ou conteúdos que despertem vontade de marcar alguém podem funcionar bem para esse objetivo.'
+  },
+  salvamentos: {
+    signif: 'Criar conteúdos que as pessoas considerem úteis, interessantes ou valiosos o suficiente para guardar e consultar novamente.',
+    quando: 'Escolha este objetivo quando a prioridade for aumentar a utilidade do conteúdo e fortalecer a percepção de valor e autoridade da marca.',
+    avalia: 'Pelo número de salvamentos e pela taxa de salvamento em relação ao alcance.',
+    atencao: 'Salvamentos costumam indicar interesse, mas não significam necessariamente intenção imediata de compra.',
+    exemplo: 'Receitas, formas de consumo, dicas de armazenamento, combinações, ideias de presente e conteúdos educativos podem ter bom potencial de salvamento.'
+  },
+  engajamento: {
+    signif: 'Estimular o público a interagir com a marca por meio de curtidas, comentários, compartilhamentos, salvamentos e outras ações.',
+    quando: 'Escolha este objetivo quando a prioridade for aumentar a participação da audiência e entender quais conteúdos despertam mais reação.',
+    avalia: 'Pelo volume de interações, pela taxa de engajamento e pela relação entre as interações e o alcance do conteúdo.',
+    atencao: 'Uma taxa alta em um post de alcance muito pequeno pode parecer excelente, mas não necessariamente representa um resultado relevante para o negócio.',
+    exemplo: 'Pode ser útil em conteúdos que convidem o público a opinar, escolher sabores, responder perguntas, contar experiências ou participar de decisões da marca.'
+  },
+  comunidade: {
+    signif: 'Criar proximidade, relacionamento e sensação de pertencimento entre a marca e as pessoas que acompanham o perfil.',
+    quando: 'Escolha este objetivo quando a prioridade for fazer a audiência participar mais, voltar ao perfil, conversar com a marca e criar vínculo ao longo do tempo.',
+    avalia: 'Principalmente por comentários, interações recorrentes e sinais de participação mais ativa.',
+    atencao: 'Fortalecer comunidade é um trabalho de médio e longo prazo. Nem sempre gera o maior alcance imediato.',
+    exemplo: 'Bastidores, histórias da marca, participação do Luiz, perguntas ao público e conteúdos que valorizem clientes e parceiros podem ajudar a fortalecer esse vínculo.'
+  },
+  produto: {
+    signif: 'Apresentar um produto, destacar seus diferenciais e aumentar o interesse do público por ele.',
+    quando: 'Escolha este objetivo em lançamentos, reposicionamentos, campanhas sazonais ou quando algum produto precisa ganhar mais visibilidade.',
+    avalia: 'Por alcance, visualizações, interações, visitas ao perfil e sinais identificados na legenda.',
+    atencao: 'O painel consegue medir interesse e atenção, mas não consegue afirmar que uma publicação gerou vendas sem dados de conversão conectados.',
+    exemplo: 'Pode ser usado para lançamentos, novos sabores, kits, presentes corporativos, combos ou produtos que precisam ser mais conhecidos.'
+  },
+  vendas: {
+    signif: 'Usar o conteúdo para aproximar o público da compra, gerar interesse comercial e incentivar algum próximo passo.',
+    quando: 'Escolha este objetivo quando a prioridade for apoiar uma campanha de venda, lançamento, oferta, encomenda ou produto específico.',
+    avalia: 'Por sinais indiretos, como visitas ao perfil, alcance, interações e presença de produto na legenda.',
+    atencao: 'As vendas e conversões não estão conectadas ao painel. Por isso, essa análise mostra potencial comercial, não vendas comprovadas.',
+    exemplo: 'Pode ajudar a selecionar conteúdos para divulgar kits, personalizados, encomendas maiores, revenda, Mercado Livre ou campanhas sazonais.'
+  },
+  testar: {
+    signif: 'Descobrir se um conteúdo pode funcionar também para pessoas que ainda não conhecem ou não acompanham a marca.',
+    quando: 'Escolha este objetivo quando a empresa quer expandir sua audiência, testar novas regiões, públicos ou interesses e reduzir a concentração em uma base já conhecida.',
+    avalia: 'Por alcance, visualizações, compartilhamentos, salvamentos, desempenho acima da mediana e potencial de funcionar fora de um contexto exclusivamente local.',
+    atencao: 'Como a fonte atual não oferece dados por estado ou cidade, o painel indica quais conteúdos são melhores candidatos ao teste, mas não comprova em qual região eles terão melhor resultado.',
+    exemplo: 'Pode ser usado para selecionar conteúdos a serem testados em novas regiões definidas junto ao Comercial ou no Gerenciador de Anúncios.'
+  }
+};
+function objGuideCard(id) {
+  const g = OBJ_GUIDE[id]; if (!g) return '';
+  const b = (ic, t, txt) => `<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#a05a2c">${ic} ${t}</div><div style="font-size:13px;line-height:1.5;color:#3a382f">${txt}</div></div>`;
+  return `<div class="card" style="background:#fbf8f3;border-color:#ecdfcb">
+    <h2 style="font-size:15px">Quando escolher este objetivo?</h2>
+    ${b('💡', 'O que isso significa', g.signif)}
+    ${b('✅', 'Quando faz sentido', g.quando)}
+    ${b('📊', 'Como o painel avalia', g.avalia)}
+    ${b('⚠️', 'Ponto de atenção', g.atencao)}
+    ${b('🍫', 'Exemplo para o Brownie do Luiz', g.exemplo)}
+  </div>`;
+}
+
+function rankForObjective(id) {
+  let list = posts.slice(), note = '', disclaimer = '', criterio = '';
+  const withRate = (p, k) => p.reach ? p[k] / p.reach : 0;
+  switch (id) {
+    case 'reconhecimento':
+      criterio = 'Ordenado por alcance e visualizações (distribuição ampla).';
+      list.sort((a, b) => (b.reach + b.views * 0.3) - (a.reach + a.views * 0.3)); break;
+    case 'alcance':
+      criterio = 'Ordenado por alcance; conteúdos acima da mediana de alcance (' + nf.format(Math.round(MED.reach)) + ') destacados.';
+      list.sort((a, b) => b.reach - a.reach); break;
+    case 'seguidores':
+      criterio = 'Ordenado por seguidores gerados por post.';
+      disclaimer = 'A fonte NÃO reporta seguidores gerados para Reels — apenas posts estáticos (foto/carrossel). Reels foram excluídos deste ranking para não comparar dados desiguais.';
+      list = list.filter(p => p.followsAvailable);
+      list.sort((a, b) => b.follows - a.follows);
+      if (list.every(p => p.follows === 0)) note = 'Nenhum post estático registrou seguidores gerados > 0 no período (dado escasso na fonte).';
+      break;
+    case 'compartilhamentos':
+      criterio = 'Ordenado por número de compartilhamentos; taxa sobre alcance exibida.';
+      list.sort((a, b) => b.shares - a.shares); break;
+    case 'salvamentos':
+      criterio = 'Ordenado por número de salvamentos; taxa sobre alcance exibida.';
+      list.sort((a, b) => b.saved - a.saved); break;
+    case 'engajamento':
+      criterio = 'Ordenado por interações, considerando o tamanho do alcance — posts com alcance muito baixo não sobem só por terem % alta.';
+      list = list.filter(p => p.reach >= MED.reach * 0.3);
+      list.sort((a, b) => b.eng - a.eng); break;
+    case 'comunidade':
+      criterio = 'Ordenado por comentários (conversa), com interações como desempate.';
+      list.sort((a, b) => (b.comments - a.comments) || (b.eng - a.eng)); break;
+    case 'produto':
+      criterio = 'Conteúdos de produto (classificação automática pela legenda), ordenados por alcance + visitas ao perfil + interações.';
+      list = list.filter(p => classifyThemes(p.fullCaption).includes('Produto'));
+      list.sort((a, b) => (b.reach + b.profileVisits * 5 + b.eng) - (a.reach + a.profileVisits * 5 + a.eng)); break;
+    case 'vendas':
+      criterio = 'Sinais indiretos: visitas ao perfil, interações, alcance e conteúdo de produto.';
+      disclaimer = 'Indicadores indiretos; vendas não estão conectadas à fonte atual — nenhum post pode ser afirmado como "vendeu".';
+      list.sort((a, b) => (b.profileVisits * 8 + b.eng + b.reach * 0.2) - (a.profileVisits * 8 + a.eng + a.reach * 0.2)); break;
+    case 'testar':
+      criterio = 'Conteúdo atemporal (estimado pela legenda), com alto compartilhamento e alcance acima da mediana, baixa dependência local.';
+      list = list.filter(p => isAtemporal(p) && !isLocalDependent(p));
+      list.sort((a, b) => (b.shares * 30 + b.reach) - (a.shares * 30 + a.reach)); break;
+  }
+  return { list: list.slice(0, 5), note, disclaimer, criterio };
+}
+
+function metricsLine(p, keys) {
+  const all = {
+    date: `📅 ${p.dateStr}`,
+    format: `<span class="tag">${p.type}</span>`,
+    reach: `Alcance <b>${nf.format(p.reach)}</b>`,
+    views: `Views <b>${nf.format(p.views)}</b>`,
+    eng: `Interações <b>${nf.format(p.eng)}</b>`,
+    shares: `Compart. <b>${nf.format(p.shares)}</b>`,
+    saved: `Salvam. <b>${nf.format(p.saved)}</b>`,
+    comments: `Coment. <b>${nf.format(p.comments)}</b>`,
+    rate: `Tx.eng <b>${(p.rate * 100).toFixed(1)}%</b>`,
+    visits: `Visitas perfil <b>${nf.format(p.profileVisits)}</b>`,
+    follows: p.followsAvailable ? `Seguidores gerados <b>${nf.format(p.follows)}</b>` : `Seguidores gerados <span class="na">n/d p/ Reels</span>`
+  };
+  return '<div class="metrics">' + keys.map(k => all[k]).join('') + '</div>';
+}
+
+function replicateBlock(p) {
+  const themes = classifyThemes(p.fullCaption);
+  const tagHtml = themes.length ? themes.map(t => `<span class="themetag">${t}</span>`).join('') : '<span class="na">sem tema detectável na legenda</span>';
+  return `<div class="replicate"><b>O que vale replicar:</b> formato <b>${p.type}</b> · ${tagHtml} ${AUTO_FLAG}<br>
+    <span class="muted">Classificação automática baseada no texto da legenda. A fonte não oferece transcrição, duração ou retenção — não há análise audiovisual.</span></div>`;
+}
+
+function objPostCard(p, i, reasonHtml) {
+  return `<div class="postcard">
+    <div class="cap2"><span class="rank">#${i + 1}</span>${(p.caption || '(sem legenda)').slice(0, 90)}
+      <a href="${p.link}" target="_blank" style="font-weight:400">↗ abrir</a></div>
+    ${metricsLine(p, ['date', 'format', 'reach', 'views', 'eng', 'shares', 'saved', 'comments', 'rate', 'visits', 'follows'])}
+    <div class="why"><b>Por que foi selecionado:</b> ${reasonHtml}</div>
+    ${replicateBlock(p)}
+  </div>`;
+}
+
+function reasonFor(id, p) {
+  const rate = (p.rate * 100).toFixed(1);
+  const shrRate = p.reach ? (p.shares / p.reach * 100).toFixed(2) : '0';
+  const savRate = p.reach ? (p.saved / p.reach * 100).toFixed(2) : '0';
+  switch (id) {
+    case 'reconhecimento': return `alcançou <b>${nf.format(p.reach)}</b> contas e <b>${nf.format(p.views)}</b> visualizações — ampla distribuição.`;
+    case 'alcance': return `alcance de <b>${nf.format(p.reach)}</b> ${p.reach >= MED.reach ? '(acima' : '(abaixo'} da mediana de ${nf.format(Math.round(MED.reach))}).`;
+    case 'seguidores': return `gerou <b>${nf.format(p.follows)}</b> seguidores (post estático — dado disponível).`;
+    case 'compartilhamentos': return `<b>${nf.format(p.shares)}</b> compartilhamentos (${shrRate}% do alcance).`;
+    case 'salvamentos': return `<b>${nf.format(p.saved)}</b> salvamentos (${savRate}% do alcance).`;
+    case 'engajamento': return `<b>${nf.format(p.eng)}</b> interações sobre alcance de ${nf.format(p.reach)} (tx. ${rate}%) — volume real, não só % em base pequena.`;
+    case 'comunidade': return `<b>${nf.format(p.comments)}</b> comentários e ${nf.format(p.eng)} interações — puxou conversa.`;
+    case 'produto': return `conteúdo de produto com alcance <b>${nf.format(p.reach)}</b>, ${nf.format(p.profileVisits)} visitas ao perfil e ${nf.format(p.eng)} interações.`;
+    case 'vendas': return `sinais indiretos: <b>${nf.format(p.profileVisits)}</b> visitas ao perfil, ${nf.format(p.eng)} interações, alcance ${nf.format(p.reach)}.`;
+    case 'testar': return `atemporal, com <b>${nf.format(p.shares)}</b> compartilhamentos e alcance ${nf.format(p.reach)} ${p.reach >= MED.reach ? '(acima da mediana)' : ''}.`;
+  }
+  return '';
+}
+
+function renderObjetivos() {
+  const sel = document.getElementById('objSelect');
+  if (!sel.options.length) {
+    OBJECTIVES.forEach(([id, label]) => { const o = document.createElement('option'); o.value = id; o.textContent = label; sel.appendChild(o); });
+    sel.addEventListener('change', () => drawObjective(sel.value));
+  }
+  drawObjective(sel.value || OBJECTIVES[0][0]);
+}
+function drawObjective(id) {
+  const r = rankForObjective(id);
+  let html = `<div class="card"><div class="hint" style="margin-bottom:8px"><b>Critério:</b> ${r.criterio}</div>`;
+  if (r.disclaimer) html += `<div class="note-box">⚠️ ${r.disclaimer}</div>`;
+  if (r.note) html += `<div class="note-box">${r.note}</div>`;
+  html += `<div class="muted" style="font-size:11px;margin-bottom:8px">Amostra do período: ${posts.length} posts · ranking mostra até 5.</div>`;
+  if (!r.list.length) html += '<div class="soon-box">Nenhum conteúdo do período atende a este critério.</div>';
+  else html += r.list.map((p, i) => objPostCard(p, i, reasonFor(id, p))).join('');
+  html += '</div>';
+  document.getElementById('objContent').innerHTML = objGuideCard(id) + html;
+}
+
+// --- Índice de oportunidade (transparente) ---
+function opportunityIndex(p, mx) {
+  const n = (v, m) => m ? v / m : 0;
+  const base = 0.30 * n(p.reach, mx.reach) + 0.15 * n(p.views, mx.views) +
+    0.25 * n(p.shares, mx.shares) + 0.15 * n(p.saved, mx.saved) + 0.15 * n(p.eng, mx.eng);
+  const bonus = isAtemporal(p) ? 0.10 : 0;
+  return Math.min(1, base + bonus);
+}
+function confidence(p) {
+  const sameFormat = posts.filter(x => x.rawType === p.rawType).length;
+  const aboveMed = p.reach >= 1.5 * MED.reach;
+  if (sameFormat >= 5 && aboveMed) return 'Alta';
+  if (sameFormat >= 3 && p.reach >= MED.reach) return 'Média';
+  return 'Baixa';
+}
+function confBadge(c) { return `<span class="conf ${c === 'Alta' ? 'alta' : c === 'Média' ? 'media' : 'baixa'}">Confiança: ${c}</span>`; }
+
+function renderTestes(d) {
+  const mx = { reach: Math.max(...posts.map(p => p.reach), 1), views: Math.max(...posts.map(p => p.views), 1), shares: Math.max(...posts.map(p => p.shares), 1), saved: Math.max(...posts.map(p => p.saved), 1), eng: Math.max(...posts.map(p => p.eng), 1) };
+  const ranked = posts.map(p => ({ p, idx: opportunityIndex(p, mx) })).sort((a, b) => b.idx - a.idx).slice(0, 6);
+  const explain = `<div class="note-box"><b>Índice de oportunidade</b> = 30% alcance + 15% views + 25% compart. + 15% salvam. + 15% interações (cada métrica normalizada pelo maior valor do período) + 10% se a legenda sugerir conteúdo atemporal. Serve apenas para <b>ordenar candidatos a teste</b> — não é previsão garantida de resultado.</div>`;
+  const cards = ranked.map(({ p, idx }, i) => {
+    const c = confidence(p);
+    const hip = isAtemporal(p) ? 'conteúdo atemporal pode performar bem em público novo/fora da base' : 'conteúdo pode ter desempenho ligado ao contexto/data — testar com cautela';
+    return `<div class="postcard">
+      <div class="cap2"><span class="rank">#${i + 1}</span>${(p.caption || '(sem legenda)').slice(0, 90)}
+        <a href="${p.link}" target="_blank" style="font-weight:400">↗ abrir</a>
+        <span style="float:right">${confBadge(c)}</span></div>
+      ${metricsLine(p, ['date', 'format', 'reach', 'views', 'shares', 'saved'])}
+      <div class="why"><b>Índice de oportunidade:</b> ${(idx * 100).toFixed(0)}/100 ·
+        <b>Motivo:</b> alcance ${nf.format(p.reach)}, ${nf.format(p.shares)} compart., ${nf.format(p.saved)} salvam.${p.reach >= 1.5 * MED.reach ? ', bem acima da mediana' : ''}.</div>
+      <div class="why"><b>Hipótese:</b> ${hip}. <b>Objetivo do teste:</b> ${isAtemporal(p) ? 'testar novo público / expandir alcance' : 'reengajar audiência atual'}.
+        <b>Métrica principal:</b> ${p.shares >= p.saved ? 'alcance + compartilhamentos' : 'salvamentos'}.</div>
+      ${replicateBlock(p)}
+    </div>`;
+  });
+  document.getElementById('testsList').innerHTML = explain + cards.join('');
+  renderGeo(d);
+  renderExpansao();
+  renderMidia();
+}
+
+function renderGeo(d) {
+  const c = (d.country || []).filter(r => r.audience_country_size).sort((a, b) => b.audience_country_size - a.audience_country_size);
+  const total = c.reduce((s, r) => s + r.audience_country_size, 0);
+  document.getElementById('geoNote').innerHTML =
+    '📍 A fonte atual disponibiliza audiência por <b>país</b>, mas não fornece distribuição por estado ou cidade, nem geolocalização específica de cada post. Comparação entre períodos e crescimento por país também não estão disponíveis (a fonte retorna apenas o retrato atual, sem histórico).';
+  const top = c.slice(0, 8);
+  const max = top.length ? top[0].audience_country_size : 1;
+  const topShare = total ? ((top[0]?.audience_country_size || 0) / total * 100).toFixed(1) : '0';
+  let html = `<div class="muted" style="font-size:11px;margin:6px 0">Concentração: <b>${topShare}%</b> da audiência no país líder · ${c.length} países no total.</div>`;
+  html += top.map(r => {
+    const pct = total ? (r.audience_country_size / total * 100) : 0;
+    return `<div class="geo-row"><span class="geo-name">${r.audience_country_name}</span>
+      <span class="geo-bar" style="width:${Math.max(4, (r.audience_country_size / max) * 160)}px"></span>
+      <span class="geo-val">${nf.format(r.audience_country_size)} (${pct.toFixed(1)}%)</span></div>`;
+  }).join('');
+  document.getElementById('geoContent').innerHTML = html;
+}
+
+function expansaoCandidates() {
+  return posts.filter(p => isAtemporal(p) && !isLocalDependent(p) &&
+    (p.shares >= MED.shares || p.reach >= MED.reach || p.saved >= MED.saved))
+    .sort((a, b) => (b.shares * 30 + b.reach + b.saved * 10) - (a.shares * 30 + a.reach + a.saved * 10))
+    .slice(0, 5);
+}
+function renderExpansao() {
+  const cand = expansaoCandidates();
+  if (!cand.length) { document.getElementById('expansaoList').innerHTML = '<div class="muted">Sem conteúdos atemporais acima da mediana no período.</div>'; return; }
+  document.getElementById('expansaoList').innerHTML = cand.map((p, i) => {
+    const c = confidence(p);
+    const obj = p.shares >= MED.shares ? 'Reconhecimento / alcance (alta partilha)' : p.saved >= MED.saved ? 'Autoridade (salvamentos)' : 'Alcance';
+    return `<div class="postcard">
+      <div class="cap2"><span class="rank">#${i + 1}</span>${(p.caption || '(sem legenda)').slice(0, 90)}
+        <a href="${p.link}" target="_blank" style="font-weight:400">↗ abrir</a>
+        <span style="float:right">${confBadge(c)}</span></div>
+      ${metricsLine(p, ['date', 'format', 'reach', 'shares', 'saved'])}
+      <div class="why"><b>Por que é adequado para expansão:</b> atemporal, ${nf.format(p.shares)} compart. e alcance ${nf.format(p.reach)} — pouco dependente de contexto local.</div>
+      <div class="why"><b>Objetivo que atende:</b> ${obj}. <b>Métrica principal:</b> ${p.shares >= p.saved ? 'compartilhamentos + alcance' : 'salvamentos'}.</div>
+      <div class="why"><b>Cuidados antes de impulsionar:</b> confirmar direitos de música/imagem; região a definir junto ao Comercial ou no Gerenciador de Anúncios; o desempenho aqui é da base atual — não há dado de performance por região.</div>
+    </div>`;
+  }).join('');
+}
+
+const PAID_STRATEGY = p => {
+  if (p.isReel) return 'Visualização de vídeo / alcance';
+  if (p.profileVisits >= MED.reach * 0.01 && p.profileVisits > 5) return 'Tráfego para o perfil';
+  if (p.shares >= MED.shares) return 'Reconhecimento / alcance';
+  if (p.eng >= MED.eng) return 'Engajamento';
+  return 'Teste de público';
+};
+function renderMidia() {
+  const cand = expansaoCandidates();
+  if (!cand.length) { document.getElementById('midiaList').innerHTML = '<div class="muted">—</div>'; return; }
+  document.getElementById('midiaList').innerHTML = cand.map(p =>
+    `<div class="geo-row" style="border-bottom:1px solid #f0ede8;padding:6px 0">
+      <span style="flex:1">${(p.caption || '(sem legenda)').slice(0, 70)} <a href="${p.link}" target="_blank">↗</a></span>
+      <span class="tag">${PAID_STRATEGY(p)}</span></div>`
+  ).join('') + '<div class="muted" style="font-size:11px;margin-top:6px">Sem sugerir conversão/vendas (não conectadas). Orçamento, público e região não são definidos automaticamente.</div>';
+}
+
+// ============================================================
+// ETAPA 3 — Diagnóstico, Recomendações e Stories
+// ============================================================
+let ANALYSIS = null;
+const sampleConf = n => n >= 5 ? 'Alta' : n >= 3 ? 'Média' : 'Baixa';
+const pctOf = (c, p) => (p === null || p === undefined || p === 0) ? null : ((c - p) / p) * 100;
+
+function analyze(d) {
+  const a = d._agg || {};
+  const reachPct = pctOf(a.reachCur, a.reachPrev), intPct = pctOf(a.intCur, a.intPrev), engPct = pctOf(a.engCur, a.engPrev);
+  const total = posts.length;
+  const fmtCount = {}; posts.forEach(p => fmtCount[p.type] = (fmtCount[p.type] || 0) + 1);
+  const fmtEntries = Object.entries(fmtCount).sort((x, y) => y[1] - x[1]);
+  const topFmt = fmtEntries[0] || ['—', 0];
+  const concentration = total ? topFmt[1] / total : 0;
+  const fmtShares = {}; posts.forEach(p => { (fmtShares[p.type] = fmtShares[p.type] || []).push(p.shares); });
+  let bestShareFmt = null, bestShareMed = -1;
+  Object.entries(fmtShares).forEach(([f, arr]) => { if (arr.length >= 2) { const m = median(arr); if (m > bestShareMed) { bestShareMed = m; bestShareFmt = f; } } });
+  const fmtReach = {}; posts.forEach(p => { (fmtReach[p.type] = fmtReach[p.type] || []).push(p.reach); });
+  let worstFmt = null, worstMed = Infinity;
+  Object.entries(fmtReach).forEach(([f, arr]) => { if (arr.length >= 2) { const m = median(arr); if (m < worstMed) { worstMed = m; worstFmt = f; } } });
+  const productPosts = posts.filter(p => classifyThemes(p.fullCaption).includes('Produto'));
+  const prodLow = productPosts.filter(p => p.reach >= MED.reach && p.eng < MED.eng);
+  const shareStars = posts.filter(p => MED.shares > 0 && p.shares >= 3 * MED.shares).sort((x, y) => y.shares - x.shares);
+  const atemporalTop = posts.filter(p => isAtemporal(p) && (p.reach >= MED.reach || p.shares >= MED.shares)).sort((x, y) => y.reach - x.reach);
+  const totalReach = posts.reduce((s, p) => s + p.reach, 0);
+  const topPost = posts.slice().sort((x, y) => y.reach - x.reach)[0];
+  const depShare = (totalReach && topPost) ? topPost.reach / totalReach : 0;
+  const volPct = pctOf(a.postsCur, a.postsPrev);
+  const themes = {}; posts.forEach(p => classifyThemes(p.fullCaption).forEach(t => themes[t] = (themes[t] || 0) + 1));
+  return { a, reachPct, intPct, engPct, total, fmtEntries, topFmt, concentration, bestShareFmt, bestShareMed, worstFmt, worstMed, productPosts, prodLow, shareStars, atemporalTop, depShare, topPost, volPct, themeCount: Object.keys(themes).length };
+}
+
+const sevBadge = s => `<span class="conf ${s === 'Alta' ? 'baixa' : s === 'Média' ? 'media' : 'alta'}" style="${s === 'Alta' ? 'background:#fbe9e6;color:#b5482f' : ''}">Severidade: ${s}</span>`;
+const prioBadge = p => `<span class="conf ${p === 'Alta' ? 'alta' : p === 'Média' ? 'media' : 'baixa'}">Prioridade: ${p}</span>`;
+const refLinks = arr => arr.slice(0, 3).map((p, i) => `<a href="${p.link}" target="_blank">ref ${i + 1}</a>`).join(' · ') || '<span class="na">—</span>';
+
+function diagItem(o) {
+  return `<div class="postcard">
+    <div class="cap2">${o.title} ${o.auto ? AUTO_FLAG : ''}</div>
+    <div class="why"><b>Evidência:</b> ${o.evidence}</div>
+    ${o.posts && o.posts.length ? `<div class="why"><b>Referências (${o.posts.length} post${o.posts.length > 1 ? 's' : ''}):</b> ${refLinks(o.posts)}</div>` : ''}
+    <div class="metrics" style="margin-top:6px">${o.sev ? sevBadge(o.sev) : ''} <span class="conf ${o.conf === 'Alta' ? 'alta' : o.conf === 'Média' ? 'media' : 'baixa'}">Confiança: ${o.conf}</span> ${o.rec ? `<span class="muted">→ Ação sugerida: ver ${o.rec}</span>` : ''}</div>
+  </div>`;
+}
+
+function buildDiagnostics(s) {
+  const D = { func: [], nao: [], melhorar: [], risco: [], compl: [] };
+  // headline
+  let headline = '';
+  if (s.reachPct !== null && s.engPct !== null && s.reachPct > 10 && s.engPct < -8) {
+    headline = `O alcance cresceu <b>${pf(s.reachPct)}</b>, mas a taxa de engajamento caiu <b>${pf(s.engPct)}</b> — o aumento de distribuição não foi acompanhado pelo mesmo crescimento proporcional das interações.`;
+  } else if (s.reachPct !== null) {
+    headline = `Nos últimos 30 dias o alcance variou <b>${pf(s.reachPct)}</b> e as interações <b>${s.intPct !== null ? pf(s.intPct) : 's/ base'}</b> frente ao período anterior.`;
+  } else {
+    headline = `Período com ${s.total} publicações; base insuficiente para comparação temporal completa.`;
+  }
+  document.getElementById('diagHeadline').innerHTML = headline;
+
+  // O que funcionou
+  if (s.bestShareFmt) D.func.push(diagItem({ title: `Formato de maior compartilhamento: <b>${s.bestShareFmt}</b>`, evidence: `mediana de ${nf.format(Math.round(s.bestShareMed))} compart. por post neste formato (amostra ${posts.filter(p => p.type === s.bestShareFmt).length}).`, posts: posts.filter(p => p.type === s.bestShareFmt).sort((a, b) => b.shares - a.shares), conf: sampleConf(posts.filter(p => p.type === s.bestShareFmt).length), rec: 'R-fazer-formato' }));
+  if (s.shareStars.length) D.func.push(diagItem({ title: `Conteúdo com compartilhamento fora da curva`, evidence: `${s.shareStars.length} post(s) com compart. ≥ 3× a mediana (${nf.format(Math.round(MED.shares))}). Destaque: ${nf.format(s.shareStars[0].shares)} compart.`, posts: s.shareStars, conf: s.shareStars.length >= 2 ? 'Média' : 'Baixa', rec: 'R-serie' }));
+  if (s.atemporalTop.length) D.func.push(diagItem({ title: `Conteúdo atemporal com bom alcance`, auto: true, evidence: `${s.atemporalTop.length} post(s) atemporais acima da mediana de alcance (${nf.format(Math.round(MED.reach))}).`, posts: s.atemporalTop, conf: sampleConf(s.atemporalTop.length), rec: 'R-teste' }));
+  if (!D.func.length) D.func.push('<div class="muted">Sem padrão consistentemente acima da média com amostra suficiente.</div>');
+
+  // O que não funcionou
+  if (s.worstFmt && s.worstMed < MED.reach) D.nao.push(diagItem({ title: `Formato de menor alcance: <b>${s.worstFmt}</b>`, evidence: `mediana de alcance ${nf.format(Math.round(s.worstMed))}, abaixo da mediana geral (${nf.format(Math.round(MED.reach))}). Amostra ${posts.filter(p => p.type === s.worstFmt).length} — avaliar objetivo antes de descartar.`, posts: posts.filter(p => p.type === s.worstFmt).sort((a, b) => a.reach - b.reach), conf: sampleConf(posts.filter(p => p.type === s.worstFmt).length), rec: 'R-reduzir' }));
+  if (!D.nao.length) D.nao.push('<div class="muted">Nenhum formato recorrente claramente abaixo da média com amostra suficiente.</div>');
+
+  // O que pode ser melhorado
+  if (s.prodLow.length) D.melhorar.push(diagItem({ title: `Conteúdo de produto com alcance, mas baixa interação`, auto: true, evidence: `${s.prodLow.length} post(s) de produto com alcance ≥ mediana porém interações abaixo da mediana (${nf.format(Math.round(MED.eng))}). Ajustar CTA/estrutura da legenda para converter alcance em interação.`, posts: s.prodLow, conf: sampleConf(s.prodLow.length), rec: 'R-ajustar-produto' }));
+  D.melhorar.push('<div class="muted" style="font-size:12px">Sugestões de ajuste possíveis (sem análise audiovisual, não disponível na fonte): estrutura da legenda, CTA explícito, pergunta direta, uso em Testes e em mídia paga. Horário será avaliável quando a aba Horários for implementada.</div>');
+
+  // Riscos
+  if (s.concentration >= 0.6 && s.fmtEntries.length >= 2) D.risco.push(diagItem({ title: `Concentração em um único formato`, evidence: `${(s.concentration * 100).toFixed(0)}% das publicações são <b>${s.topFmt[0]}</b> (${s.topFmt[1]} de ${s.total}). Baixa diversidade de formato aumenta risco de fadiga.`, conf: 'Alta', sev: s.concentration >= 0.75 ? 'Alta' : 'Média', rec: 'R-diversificar' }));
+  if (s.depShare >= 0.3 && s.topPost) D.risco.push(diagItem({ title: `Alcance concentrado em um único conteúdo`, evidence: `1 post responde por <b>${(s.depShare * 100).toFixed(0)}%</b> do alcance do período (${nf.format(s.topPost.reach)}). Dependência de outlier — resultado pouco previsível.`, posts: [s.topPost], conf: 'Média', sev: s.depShare >= 0.45 ? 'Alta' : 'Média', rec: 'R-consistencia' }));
+  if (s.volPct !== null && s.reachPct !== null && s.volPct >= 10 && s.reachPct < s.volPct - 5) D.risco.push(diagItem({ title: `Mais volume sem resultado proporcional`, evidence: `volume de posts variou ${pf(s.volPct)} mas o alcance só ${pf(s.reachPct)}. Produzir mais não está gerando alcance proporcional.`, conf: 'Média', sev: 'Média', rec: 'R-reduzir' }));
+  if (s.themeCount <= 3) D.risco.push(diagItem({ title: `Pouca diversidade de temas`, auto: true, evidence: `apenas ${s.themeCount} tema(s) detectado(s) por legenda no período. Classificação automática — pode subestimar variedade real.`, conf: 'Baixa', sev: 'Baixa', rec: 'R-teste' }));
+  if (s.total < 12) D.risco.push(diagItem({ title: `Amostra pequena para algumas conclusões`, evidence: `${s.total} posts no período — leituras por formato/tema têm confiança reduzida.`, conf: 'Alta', sev: 'Média' }));
+  D.risco.push(diagItem({ title: `Sem dados de vendas para validar conteúdo comercial`, evidence: `a fonte não conecta vendas/conversões — conteúdos de produto não podem ser validados por resultado comercial, apenas por sinais indiretos (visitas ao perfil, interações).`, conf: 'Alta', sev: 'Baixa' }));
+
+  // Complementares (máx 5) — leitura mais estratégica
+  const compl = [];
+  if (s.engPct !== null) compl.push(diagItem({ title: `Qualidade da audiência alcançada`, evidence: `taxa de engajamento ${s.a.engCur.toFixed(1)}% (${s.engPct >= 0 ? 'alta' : 'queda'} de ${pf(s.engPct)}). ${s.engPct < 0 ? 'Distribuição maior pode estar atingindo público menos qualificado.' : 'Interação acompanhou a distribuição.'}`, conf: 'Média' }));
+  if (s.shareStars.length) compl.push(diagItem({ title: `Compartilhamento como motor de alcance`, evidence: `os posts mais compartilhados tendem a puxar o alcance — priorizar ganchos compartilháveis pode ser mais eficiente que volume.`, conf: 'Média', rec: 'R-serie' }));
+  if (s.productPosts.length) compl.push(diagItem({ title: `Peso do conteúdo de produto`, auto: true, evidence: `${s.productPosts.length} de ${s.total} posts classificados como produto pela legenda — avaliar equilíbrio entre venda e conteúdo de audiência.`, conf: 'Baixa' }));
+  if (s.atemporalTop.length) compl.push(diagItem({ title: `Reservatório de conteúdo atemporal`, auto: true, evidence: `há ${s.atemporalTop.length} conteúdo(s) atemporal(is) reaproveitável(is) em Testes e mídia paga sem depender de contexto/data.`, conf: 'Média', rec: 'R-teste' }));
+  compl.push(diagItem({ title: `Baixo uso do modo Teste`, evidence: `há candidatos de alto potencial (ver aba Testes) ainda não reaproveitados no recurso de Teste do Instagram.`, conf: 'Baixa', rec: 'R-modo-teste' }));
+  D.compl = compl.slice(0, 5);
+
+  return D;
+}
+
+function renderDiagnostico(d) {
+  const s = ANALYSIS;
+  const D = buildDiagnostics(s);
+  document.getElementById('diagFunc').innerHTML = D.func.join('');
+  document.getElementById('diagNao').innerHTML = D.nao.join('');
+  document.getElementById('diagMelhorar').innerHTML = D.melhorar.join('');
+  document.getElementById('diagRiscos').innerHTML = D.risco.join('');
+  document.getElementById('diagCompl').innerHTML = D.compl.join('');
+}
+
+// ---- Recomendações ----
+function recCard(r) {
+  return `<div class="postcard" data-cat="${r.cat}">
+    <div class="cap2">${r.title} <span class="tag">${r.cat}</span></div>
+    <div class="why"><b>Ação:</b> ${r.action}</div>
+    <div class="why"><b>Por quê:</b> ${r.justification}</div>
+    <div class="why"><b>Dados usados:</b> ${r.data}</div>
+    <div class="why"><b>Frequência sugerida:</b> ${r.freq}</div>
+    <div class="metrics" style="margin-top:6px">
+      ${prioBadge(r.prio)}
+      <span class="conf ${r.conf === 'Alta' ? 'alta' : r.conf === 'Média' ? 'media' : 'baixa'}">Confiança: ${r.conf}</span>
+      <span class="tag">Impacto: ${r.impact}</span>
+      <span class="tag">Esforço: ${r.effort}</span>
+    </div>
+    <div class="why" style="margin-top:4px"><b>Referências:</b> ${refLinks(r.refs || [])} · <span class="muted">Origem: ${r.origem}</span></div>
+  </div>`;
+}
+const PRIO_RANK = { Alta: 3, Média: 2, Baixa: 1 };
+const IMP_RANK = { Alto: 3, Médio: 2, Baixo: 1 };
+const EFF_RANK = { Baixo: 3, Médio: 2, Alto: 1 };
+
+function buildRecommendations(s) {
+  const R = [];
+  if (s.bestShareFmt) { const arr = posts.filter(p => p.type === s.bestShareFmt).sort((a, b) => b.shares - a.shares); const n = arr.length;
+    R.push({ id: 'R-fazer-formato', cat: 'Fazer mais', title: `Priorizar ${s.bestShareFmt} de alto compartilhamento`, action: `Produzir mais conteúdos no formato ${s.bestShareFmt}, replicando os ganchos dos melhores.`, justification: `este formato tem a maior mediana de compartilhamentos (${nf.format(Math.round(s.bestShareMed))}).`, data: `mediana de compart. por formato; amostra ${n} posts.`, freq: n >= 3 ? 'Repetir o formato em pelo menos 3 novas publicações antes de concluir.' : 'Frequência ainda não definida; recomenda-se um teste controlado.', prio: 'Alta', conf: sampleConf(n), impact: 'Alto', effort: 'Médio', refs: arr, origem: 'diagnóstico "O que funcionou"' }); }
+  if (s.shareStars.length) { const n = s.shareStars.length;
+    R.push({ id: 'R-serie', cat: n >= 2 ? 'Fazer mais' : 'Testar', title: `Transformar conteúdo viral de partilha em série`, action: `Criar uma série recorrente a partir do(s) conteúdo(s) com mais compartilhamentos.`, justification: `${n} post(s) atingiram ≥ 3× a mediana de compart. (destaque ${nf.format(s.shareStars[0].shares)}).`, data: `compart. vs mediana (${nf.format(Math.round(MED.shares))}).`, freq: n >= 3 ? 'Testar 1 episódio por semana por 4 semanas.' : 'Frequência ainda não definida; recomenda-se um teste controlado.', prio: n >= 2 ? 'Alta' : 'Média', conf: n >= 2 ? 'Média' : 'Baixa', impact: 'Alto', effort: 'Médio', refs: s.shareStars, origem: 'diagnóstico "compartilhamento fora da curva"' }); }
+  if (s.atemporalTop.length) { const n = s.atemporalTop.length;
+    R.push({ id: 'R-teste', cat: 'Testar', title: `Reaproveitar conteúdo atemporal no modo Teste`, action: `Usar os conteúdos atemporais de melhor desempenho no recurso de Teste do Instagram / público novo.`, justification: `${n} conteúdo(s) atemporal(is) acima da mediana — pouca dependência de contexto.`, data: `classificação automática por legenda + alcance/compart. vs mediana.`, freq: n >= 3 ? 'Testar 1 conteúdo por semana por 4 semanas.' : 'Frequência ainda não definida; recomenda-se um teste controlado.', prio: 'Média', conf: sampleConf(n), impact: 'Médio', effort: 'Baixo', refs: s.atemporalTop, origem: 'diagnóstico "conteúdo atemporal"' }); }
+  if (s.prodLow.length) { const n = s.prodLow.length;
+    R.push({ id: 'R-ajustar-produto', cat: 'Ajustar', title: `Ajustar conteúdo de produto com alcance e pouca interação`, action: `Revisar CTA e estrutura da legenda dos posts de produto que alcançam, mas não interagem.`, justification: `${n} post(s) de produto com alcance ≥ mediana e interações abaixo da mediana.`, data: `classificação automática por legenda; alcance e interações vs mediana.`, freq: 'Repetir o ajuste em pelo menos 3 novas publicações antes de concluir.', prio: 'Média', conf: sampleConf(n), impact: 'Médio', effort: 'Baixo', refs: s.prodLow, origem: 'diagnóstico "produto com baixa interação"' }); }
+  if (s.concentration >= 0.6 && s.fmtEntries.length >= 2) {
+    R.push({ id: 'R-diversificar', cat: 'Testar', title: `Diversificar formatos`, action: `Introduzir outros formatos além de ${s.topFmt[0]} de forma controlada.`, justification: `${(s.concentration * 100).toFixed(0)}% das publicações são de um só formato — risco de fadiga.`, data: `distribuição de formatos (${s.total} posts).`, freq: 'Testar 1 formato alternativo por semana por 4 semanas.', prio: 'Média', conf: 'Alta', impact: 'Médio', effort: 'Médio', refs: [], origem: 'risco "concentração de formato"' }); }
+  if (s.worstFmt && s.worstMed < MED.reach) { const arr = posts.filter(p => p.type === s.worstFmt); const n = arr.length;
+    R.push({ id: 'R-reduzir', cat: 'Reduzir', title: `Reduzir/repensar ${s.worstFmt} de baixo alcance`, action: `Diminuir a frequência de ${s.worstFmt} ou repensar seu objetivo antes de manter o volume.`, justification: `mediana de alcance ${nf.format(Math.round(s.worstMed))}, abaixo da geral — avaliar se o objetivo justifica manter.`, data: `mediana de alcance por formato; amostra ${n}.`, freq: 'Reavaliar após 3 publicações ajustadas.', prio: 'Baixa', conf: sampleConf(n), impact: 'Baixo', effort: 'Baixo', refs: arr, origem: 'diagnóstico "O que não funcionou"' }); }
+  if (s.depShare >= 0.3 && s.topPost) {
+    R.push({ id: 'R-consistencia', cat: 'Manter', title: `Buscar consistência para reduzir dependência de outlier`, action: `Manter a estratégia que gerou o pico, mas ampliar a base de conteúdos medianos fortes.`, justification: `1 post concentra ${(s.depShare * 100).toFixed(0)}% do alcance — reduzir dependência dá previsibilidade.`, data: `participação do maior post no alcance total.`, freq: 'Acompanhar por 4 semanas.', prio: 'Média', conf: 'Média', impact: 'Médio', effort: 'Médio', refs: [s.topPost], origem: 'risco "alcance concentrado"' }); }
+  R.push({ id: 'R-modo-teste', cat: 'Testar', title: `Usar candidatos já publicados no modo Teste`, action: `Aproveitar o ranking da aba Testes (Índice de oportunidade) para reutilizar conteúdos existentes.`, justification: `há conteúdos de alto potencial ainda não testados — reuso tem baixo esforço.`, data: `Índice de oportunidade (aba Testes).`, freq: 'Testar 1 conteúdo por semana por 4 semanas.', prio: 'Média', conf: 'Média', impact: 'Médio', effort: 'Baixo', refs: posts.slice().sort((a, b) => b.shares - a.shares).slice(0, 2), origem: 'diagnóstico "baixo uso do modo Teste"' });
+
+  R.sort((x, y) => (PRIO_RANK[y.prio] - PRIO_RANK[x.prio]) || (PRIO_RANK[y.conf] - PRIO_RANK[x.conf]) || (IMP_RANK[y.impact] - IMP_RANK[x.impact]) || (EFF_RANK[y.effort] - EFF_RANK[x.effort]));
+  return R;
+}
+let ALL_RECS = [];
+function renderRecomendacoes() {
+  ALL_RECS = buildRecommendations(ANALYSIS);
+  const cats = ['Todos', 'Fazer mais', 'Manter', 'Ajustar', 'Reduzir', 'Retomar', 'Testar'];
+  document.getElementById('recFilters').innerHTML = cats.map(c => `<button class="recfilter tag" data-c="${c}" style="cursor:pointer;border:1px solid #e8e5e0">${c}</button>`).join(' ');
+  document.querySelectorAll('.recfilter').forEach(b => b.addEventListener('click', () => drawRecs(b.dataset.c)));
+  drawRecs('Todos');
+}
+function drawRecs(cat) {
+  const list = cat === 'Todos' ? ALL_RECS : ALL_RECS.filter(r => r.cat === cat);
+  document.getElementById('recList').innerHTML = list.length ? list.map(recCard).join('') : '<div class="card"><div class="muted">Nenhuma recomendação neste grupo com base nos dados atuais.</div></div>';
+}
+
+// ---- Stories (janela 24-48h) + histórico local ----
+const HIST_KEY = 'bdl_stories_hist_v1';
+function snapshotStories(stories) {
+  let hist = {};
+  try { hist = JSON.parse(localStorage.getItem(HIST_KEY) || '{}'); } catch (e) { hist = {}; }
+  const nowISO = new Date().toISOString();
+  let added = 0;
+  (stories || []).forEach(st => {
+    if (!st.story_id) return;
+    if (!hist[st.story_id]) { added++; hist[st.story_id] = { ts: st.story_timestamp, firstCapture: nowISO }; }
+    hist[st.story_id].lastCapture = nowISO;
+    hist[st.story_id].reach = st.story_reach; hist[st.story_id].views = st.story_views;
+    hist[st.story_id].replies = st.story_replies; hist[st.story_id].interactions = st.story_interactions;
+  });
+  let persisted = true;
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch (e) { persisted = false; }
+  return { hist, added, persisted, count: Object.keys(hist).length };
+}
+let storiesData = [], storiesSort = { k: 'ts', d: -1 };
+const stVal = (st, k) => ({ ts: new Date(st.story_timestamp).getTime(), reach: st.story_reach || 0, views: st.story_views || 0, replies: st.story_replies || 0, shares: st.story_shares || 0, fwd: st.story_taps_forward || 0, back: st.story_taps_back || 0, exits: st.story_exits || 0, inter: st.story_interactions || 0 }[k]);
+function renderStoriesTable() {
+  const sorted = storiesData.slice().sort((a, b) => (stVal(a, storiesSort.k) - stVal(b, storiesSort.k)) * storiesSort.d);
+  document.querySelectorAll('[id^="s-"]').forEach(e => { e.textContent = ''; });
+  const ind = document.getElementById('s-' + storiesSort.k); if (ind) ind.textContent = storiesSort.d < 0 ? '▼' : '▲';
+  document.getElementById('storiesRows').innerHTML = sorted.map(st => {
+    const dt = new Date(st.story_timestamp);
+    return `<tr>
+      <td class="muted" style="white-space:nowrap">${dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+      <td class="num">${nf.format(st.story_reach || 0)}</td>
+      <td class="num">${nf.format(st.story_views || 0)}</td>
+      <td class="num">${nf.format(st.story_replies || 0)}</td>
+      <td class="num">${nf.format(st.story_shares || 0)}</td>
+      <td class="num">${nf.format(st.story_taps_forward || 0)}</td>
+      <td class="num">${nf.format(st.story_taps_back || 0)}</td>
+      <td class="num">${nf.format(st.story_exits || 0)}</td>
+      <td class="num">${nf.format(st.story_interactions || 0)}</td>
+    </tr>`;
+  }).join('');
+}
+function renderStories(d) {
+  storiesData = (d.stories || []).filter(st => st.story_id);
+  const kpiBox = document.getElementById('storiesKpis');
+  if (!storiesData.length) {
+    kpiBox.innerHTML = '<div class="muted">Nenhum Story disponível na janela atual (24–48h).</div>';
+    ['storiesRows', 'storiesSeq', 'storiesRecs'].forEach(id => document.getElementById(id).innerHTML = '<div class="muted">—</div>');
+    renderStoriesHist(snapshotStories(storiesData));
+    return;
+  }
+  const n = storiesData.length;
+  const avg = k => Math.round(storiesData.reduce((s, x) => s + (x[k] || 0), 0) / n);
+  const totalReplies = storiesData.reduce((s, x) => s + (x.story_replies || 0), 0);
+  const byReach = storiesData.slice().sort((a, b) => (b.story_reach || 0) - (a.story_reach || 0));
+  const byInter = storiesData.slice().sort((a, b) => (b.story_interactions || 0) - (a.story_interactions || 0));
+  kpiBox.innerHTML =
+    kpi('Stories disponíveis', nf.format(n), 'janela 24–48h') +
+    kpi('Alcance médio', nf.format(avg('story_reach')), '') +
+    kpi('Visualizações médias', nf.format(avg('story_views')), '') +
+    kpi('Respostas totais', nf.format(totalReplies), '') +
+    kpi('Cliques em link', '<span class="na" style="font-size:13px">indisponível</span>', 'sem campo na fonte') +
+    kpi('Taxa de conclusão', '<span class="na" style="font-size:13px">indisponível</span>', 'dados insuficientes na fonte') +
+    kpi('Maior alcance', nf.format(byReach[0].story_reach || 0), new Date(byReach[0].story_timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })) +
+    kpi('Maior interação', nf.format(byInter[0].story_interactions || 0), new Date(byInter[0].story_timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+  renderStoriesTable();
+  document.querySelectorAll('#panel-stories th[data-sk]').forEach(th => th.addEventListener('click', () => {
+    const k = th.dataset.sk; if (storiesSort.k === k) storiesSort.d = -storiesSort.d; else { storiesSort.k = k; storiesSort.d = -1; }
+    renderStoriesTable();
+  }));
+
+  // Sequência do dia (dia com mais stories)
+  const byDay = {}; storiesData.forEach(st => { const day = st.story_timestamp.slice(0, 10); (byDay[day] = byDay[day] || []).push(st); });
+  const bigDay = Object.entries(byDay).sort((a, b) => b[1].length - a[1].length)[0];
+  let seqHtml = '';
+  if (bigDay && bigDay[1].length >= 2) {
+    const seq = bigDay[1].slice().sort((a, b) => new Date(a.story_timestamp) - new Date(b.story_timestamp));
+    const first = seq[0], last = seq[seq.length - 1];
+    const drop = first.story_reach ? ((first.story_reach - last.story_reach) / first.story_reach * 100) : 0;
+    const mostExit = seq.slice().sort((a, b) => ((b.story_exits || 0) / (b.story_views || 1)) - ((a.story_exits || 0) / (a.story_views || 1)))[0];
+    const mostReply = seq.slice().sort((a, b) => (b.story_replies || 0) - (a.story_replies || 0))[0];
+    const hhmm = st => new Date(st.story_timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    seqHtml = `<div class="why">Sequência de <b>${seq.length} Stories</b> em ${new Date(bigDay[0]).toLocaleDateString('pt-BR')}:</div>
+      <div class="why">• Alcance do 1º (${hhmm(first)}): <b>${nf.format(first.story_reach || 0)}</b> → último (${hhmm(last)}): <b>${nf.format(last.story_reach || 0)}</b> (${drop >= 0 ? 'queda' : 'alta'} de ${Math.abs(drop).toFixed(0)}%).</div>
+      <div class="why">• Maior taxa de saída: ${hhmm(mostExit)} (${nf.format(mostExit.story_exits || 0)} saídas / ${nf.format(mostExit.story_views || 0)} views).</div>
+      <div class="why">• Mais respostas: ${hhmm(mostReply)} (${nf.format(mostReply.story_replies || 0)}).</div>
+      <div class="muted" style="font-size:11px">Taxa de conclusão não calculada — a fonte não fornece dados suficientes por frame.</div>`;
+  } else {
+    seqHtml = '<div class="muted">Não há sequência de 2+ Stories no mesmo dia na janela atual para analisar queda ao longo da sequência.</div>';
+  }
+  document.getElementById('storiesSeq').innerHTML = seqHtml;
+
+  // Recomendações Stories (máx 3)
+  const recs = [];
+  const avgReplies = totalReplies / n;
+  const bestReply = byInter[0];
+  if (bestReply && (bestReply.story_replies || 0) > avgReplies && avgReplies > 0) recs.push(`Repetir o tipo de Story das <b>${new Date(bestReply.story_timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</b>, que gerou ${nf.format(bestReply.story_replies)} respostas (acima da média de ${avgReplies.toFixed(1)}).`);
+  if (bigDay && bigDay[1].length >= 4) recs.push(`A sequência do dia teve ${bigDay[1].length} Stories — se houver forte queda de alcance ao final, reduzir o tamanho da sequência.`);
+  const highExit = storiesData.slice().sort((a, b) => ((b.story_exits || 0) / (b.story_views || 1)) - ((a.story_exits || 0) / (a.story_views || 1)))[0];
+  if (highExit && (highExit.story_exits || 0) / (highExit.story_views || 1) > 0.2) recs.push(`Posicionar CTA/link antes do Story das <b>${new Date(highExit.story_timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</b>, ponto de maior saída relativa.`);
+  document.getElementById('storiesRecs').innerHTML = (recs.slice(0, 3).map(r => `<div class="why">• ${r}</div>`).join('') || '<div class="muted">Sem sinal forte o suficiente na janela atual para uma recomendação segura.</div>') +
+    '<div class="muted" style="font-size:11px;margin-top:6px">Tipo de Story (enquete/caixinha/quiz/sticker) não vem estruturado na fonte — classificação por tipo indisponível. <span class="flag">recomendação por janela curta 24–48h</span></div>';
+
+  renderStoriesHist(snapshotStories(storiesData));
+}
+function renderStoriesHist(snap) {
+  const box = document.getElementById('storiesHist');
+  if (!snap.persisted) {
+    box.innerHTML = '<div class="note-box">Para criar histórico de Stories, é necessário salvar snapshots periódicos antes que os dados expirem. Este ambiente não permitiu persistência local confiável agora — a alternativa técnica mais simples seria uma tarefa agendada diária que captura os Stories via este mesmo conector e acumula os números em um arquivo local, sem banco de dados nem serviço externo.</div>';
+    return;
+  }
+  const dates = Object.values(snap.hist).map(h => (h.ts || '').slice(0, 10)).filter(Boolean).sort();
+  box.innerHTML = `<div class="why">Snapshot salvo localmente (no seu navegador, via localStorage — sem banco de dados, serviço externo ou credenciais).</div>
+    <div class="metrics"><span>Stories já capturados no histórico: <b>${snap.count}</b></span><span>Novos nesta abertura: <b>${snap.added}</b></span>${dates.length ? `<span>Cobertura: ${dates[0]} → ${dates[dates.length - 1]}</span>` : ''}</div>
+    <div class="muted" style="font-size:11px;margin-top:4px">O histórico cresce a cada vez que você abre o painel enquanto houver Stories ativos. Para acumular de forma consistente, o ideal é abrir/atualizar o painel ao menos uma vez por dia (ou agendar uma tarefa diária) antes que os Stories expirem. Nada é enviado para fora do seu dispositivo.</div>`;
+}
+
+// ============================================================
+// ETAPA 4 — Collabs, Reels e Conteúdos
+// ============================================================
+// --- Classificação automática de Collab (sem flag oficial na fonte) ---
+function collabState(p) {
+  const c = norm(p.fullCaption);
+  const mentions = (p.fullCaption.match(/@[A-Za-z0-9._]+/g) || []);
+  const strong = ['collab', 'colaboracao', 'em parceria', 'parceria com', 'colab'];
+  const weak = ['participacao', 'convidad', 'junto com', ' com @'];
+  if (strong.some(k => c.includes(k)) || mentions.length >= 2) return { state: 'Provável Collab', conf: 'Média' };
+  if (mentions.length === 1 || weak.some(k => c.includes(k))) return { state: 'Possível Collab', conf: 'Baixa' };
+  return { state: 'Não identificado como Collab', conf: '—' };
+}
+const isCollab = p => p.collab === 'Provável Collab' || p.collab === 'Possível Collab';
+const fmtWatchAvg = ms => ms ? (ms / 1000).toFixed(1) + 's' : '—';
+const fmtWatchTotal = ms => !ms ? '—' : ms >= 3.6e6 ? (ms / 3.6e6).toFixed(1) + 'h' : (ms / 60000).toFixed(0) + 'min';
+const avgOf = (arr, k) => arr.length ? Math.round(arr.reduce((s, p) => s + (p[k] || 0), 0) / arr.length) : 0;
+const medOf = (arr, k) => median(arr.map(p => p[k] || 0));
+
+// --- Membership: em quais abas cada post aparece (reutiliza rankings existentes) ---
+let MEMB = {};
+function computeMembership() {
+  MEMB = {};
+  const mark = (link, key, val) => { (MEMB[link] = MEMB[link] || { obj: [], test: false, diag: false, rec: false }); if (key === 'obj') MEMB[link].obj.push(val); else MEMB[link][key] = true; };
+  OBJECTIVES.forEach(([id, label]) => { rankForObjective(id).list.forEach(p => mark(p.link, 'obj', label)); });
+  const mx = { reach: Math.max(...posts.map(p => p.reach), 1), views: Math.max(...posts.map(p => p.views), 1), shares: Math.max(...posts.map(p => p.shares), 1), saved: Math.max(...posts.map(p => p.saved), 1), eng: Math.max(...posts.map(p => p.eng), 1) };
+  posts.map(p => ({ p, idx: opportunityIndex(p, mx) })).sort((a, b) => b.idx - a.idx).slice(0, 6).forEach(({ p }) => mark(p.link, 'test'));
+  if (ANALYSIS) {
+    [].concat(ANALYSIS.shareStars, ANALYSIS.atemporalTop, ANALYSIS.prodLow, ANALYSIS.topPost ? [ANALYSIS.topPost] : []).forEach(p => p && mark(p.link, 'diag'));
+    if (ANALYSIS.bestShareFmt) posts.filter(p => p.type === ANALYSIS.bestShareFmt).forEach(p => mark(p.link, 'diag'));
+  }
+  (ALL_RECS || []).forEach(r => (r.refs || []).forEach(p => mark(p.link, 'rec')));
+}
+function membBadges(link) {
+  const m = MEMB[link]; if (!m) return '<span class="na">—</span>';
+  const b = [];
+  if (m.obj.length) b.push(`<span class="themetag">Objetivos: ${m.obj.slice(0, 3).join(', ')}${m.obj.length > 3 ? '…' : ''}</span>`);
+  if (m.test) b.push('<span class="flag">Testes</span>');
+  if (m.diag) b.push('<span class="flag">Diagnóstico</span>');
+  if (m.rec) b.push('<span class="flag">Recomendações</span>');
+  return b.join(' ') || '<span class="na">—</span>';
+}
+
+// --- Overrides manuais (localStorage) ---
+const OV_KEY = 'bdl_overrides_v1';
+function loadOverrides() { try { return JSON.parse(localStorage.getItem(OV_KEY) || '{}'); } catch (e) { return {}; } }
+let OVERRIDES = {};
+function saveOverride(link, obj) {
+  OVERRIDES[link] = Object.assign({}, OVERRIDES[link], obj);
+  let ok = true; try { localStorage.setItem(OV_KEY, JSON.stringify(OVERRIDES)); } catch (e) { ok = false; }
+  return ok;
+}
+const themeOf = p => { const o = OVERRIDES[p.link] || {}; if (o.tema) return { txt: o.tema, manual: true }; const t = classifyThemes(p.fullCaption); return { txt: t.length ? t.join(', ') : 'sem tema detectável', manual: false, low: !t.length }; };
+const collabOf = p => { const o = OVERRIDES[p.link] || {}; return o.collab ? { txt: o.collab, manual: true } : { txt: p.collab, manual: false }; };
+
+// ================= COLLABS =================
+function statBlock(label, arr) {
+  if (!arr.length) return `<div class="postcard"><b>${label}</b><div class="muted">Sem posts nesta categoria.</div></div>`;
+  const rate = arr.length ? (arr.reduce((s, p) => s + p.rate, 0) / arr.length * 100).toFixed(1) : '0';
+  const reaches = arr.map(p => p.reach);
+  const outlier = Math.max(...reaches) >= 2 * (median(reaches) || 1);
+  const row = (l, k) => `<span>${l}: <b>${nf.format(avgOf(arr, k))}</b> <span class="muted">(med ${nf.format(Math.round(medOf(arr, k)))})</span></span>`;
+  return `<div class="postcard">
+    <div class="cap2">${label} <span class="muted" style="font-weight:400">— amostra ${arr.length}${outlier ? ' · ⚠️ outlier presente' : ''}</span></div>
+    <div class="metrics">
+      <span>Alcance total: <b>${nf.format(arr.reduce((s, p) => s + p.reach, 0))}</b></span>
+      ${row('Alcance médio', 'reach')} ${row('Views médias', 'views')} ${row('Interações médias', 'eng')}
+      <span>Tx.eng média: <b>${rate}%</b></span>
+      ${row('Comentários', 'comments')} ${row('Compart.', 'shares')} ${row('Salvam.', 'saved')} ${row('Visitas perfil', 'profileVisits')}
+    </div>
+    <div class="muted" style="font-size:11px">Seguidores gerados: disponível só para posts estáticos (n/d p/ Reels).</div>
+  </div>`;
+}
+function renderCollabs() {
+  const collabs = posts.filter(isCollab);
+  const comuns = posts.filter(p => !isCollab(p));
+  document.getElementById('collabCompare').innerHTML =
+    statBlock('Prováveis/Possíveis Collabs', collabs) + statBlock('Posts comuns', comuns);
+
+  const ranks = [['Alcance', 'reach'], ['Visualizações', 'views'], ['Engajamento', 'eng'], ['Compartilhamentos', 'shares'], ['Salvamentos', 'saved'], ['Visitas ao perfil', 'profileVisits']];
+  if (!collabs.length) {
+    document.getElementById('collabRanks').innerHTML = '<div class="muted">Nenhum post foi classificado automaticamente como provável/possível Collab no período (a fonte não expõe menções/flag de coautoria de forma estruturada).</div>';
+  } else {
+    document.getElementById('collabRanks').innerHTML = ranks.map(([label, k]) => {
+      const top = collabs.slice().sort((a, b) => (b[k] || 0) - (a[k] || 0))[0];
+      return `<div class="geo-row" style="border-bottom:1px solid #f0ede8;padding:6px 0">
+        <span style="flex:1"><b>${label}:</b> ${(top.caption || '(sem legenda)').slice(0, 50)} <a href="${top.link}" target="_blank">↗</a>
+          <span class="conf baixa">${top.collab} · conf. ${top.collabConf}</span>
+          <a href="#" onclick="openInConteudos('${top.link}');return false" style="font-size:11px">detalhe</a></span>
+        <span class="tag">${nf.format(top[k] || 0)}</span></div>`;
+    }).join('');
+  }
+
+  // Diagnóstico
+  const collabsN = collabs.length, comunsN = comuns.length;
+  let diag = '';
+  if (!collabsN) {
+    diag = '<div class="muted">Sem Collabs identificadas automaticamente — nada a concluir. A amostra ainda é pequena; recomenda-se um teste controlado antes de definir frequência.</div>';
+  } else {
+    const cReach = avgOf(collabs, 'reach'), oReach = avgOf(comuns, 'reach');
+    const cMed = medOf(collabs, 'reach'), oMed = medOf(comuns, 'reach');
+    const diff = oReach ? ((cReach - oReach) / oReach * 100) : 0;
+    const enough = collabsN >= 3;
+    diag = `<div class="why">Collabs (prováveis/possíveis): <b>${collabsN}</b> · posts comuns: <b>${comunsN}</b>.</div>
+      <div class="why">Alcance médio Collab <b>${nf.format(cReach)}</b> (mediana ${nf.format(Math.round(cMed))}) vs. comuns <b>${nf.format(oReach)}</b> (mediana ${nf.format(Math.round(oMed))}) → diferença de <b>${pf(diff)}</b>.</div>
+      <div class="why"><b>Conclusão:</b> ${enough ? (diff > 10 ? 'as Collabs superaram os posts comuns em alcance de forma relevante — vale manter/retomar.' : diff < -10 ? 'as Collabs ficaram abaixo dos posts comuns — reavaliar parceiros e formato antes de insistir.' : 'desempenho semelhante ao dos posts comuns — decisão pode considerar outros objetivos além de alcance.') : 'amostra ainda pequena — leitura apenas indicativa.'}
+        ${collabsN === 1 ? ' <span class="flag">baseado em 1 conteúdo — hipótese</span>' : ''}</div>
+      <div class="why"><b>Frequência:</b> ${enough ? 'Testar uma Collab por semana durante quatro semanas e comparar.' : 'A amostra ainda é pequena; recomenda-se um teste controlado antes de definir frequência.'}</div>
+      <div class="muted" style="font-size:11px">Classificação automática por legenda/menções — não é flag oficial de Collab.</div>`;
+  }
+  document.getElementById('collabDiag').innerHTML = diag;
+}
+
+// ================= REELS =================
+let reelsData = [], reelSort = { k: 'reach', d: -1 };
+const rVal = (p, k) => ({ ts: p.ts, reach: p.reach, views: p.views, watch: p.watchAvg, eng: p.eng, rate: p.rate, shares: p.shares, saved: p.saved }[k]);
+function renderReelsTable() {
+  const sorted = reelsData.slice().sort((a, b) => (rVal(a, reelSort.k) - rVal(b, reelSort.k)) * reelSort.d);
+  document.querySelectorAll('[id^="r-"]').forEach(e => { if (e.classList && e.classList.contains('arrow')) e.textContent = ''; });
+  const ind = document.getElementById('r-' + reelSort.k); if (ind) ind.textContent = reelSort.d < 0 ? '▼' : '▲';
+  const medReach = medOf(reelsData, 'reach'), avgReach = avgOf(reelsData, 'reach');
+  document.getElementById('reelsRows').innerHTML = sorted.map((p, i) => `<tr>
+    <td class="muted" style="white-space:nowrap">${p.dateStr}</td>
+    <td class="cap"><a href="${p.link}" target="_blank" title="${(p.caption || '').replace(/"/g, '&quot;')}">${(p.caption || '(sem legenda)').slice(0, 46)}</a>
+      <span class="muted" style="font-size:10px">${p.reach >= avgReach ? '↑média' : '↓média'} · ${p.reach >= medReach ? '↑mediana' : '↓mediana'}</span></td>
+    <td class="num">${nf.format(p.reach)}</td><td class="num">${nf.format(p.views)}</td>
+    <td class="num">${fmtWatchAvg(p.watchAvg)}</td><td class="num"><b>${nf.format(p.eng)}</b></td>
+    <td class="num">${(p.rate * 100).toFixed(1)}%</td><td class="num">${nf.format(p.shares)}</td><td class="num">${nf.format(p.saved)}</td>
+  </tr>`).join('');
+}
+function renderReels() {
+  reelsData = posts.filter(p => p.isReel);
+  const box = document.getElementById('reelsKpis');
+  if (!reelsData.length) { box.innerHTML = '<div class="muted">Nenhum Reel no período.</div>'; ['reelsRows', 'reelsPatterns', 'reelsWatch', 'reelsReplicate'].forEach(id => document.getElementById(id).innerHTML = '<div class="muted">—</div>'); return; }
+  const n = reelsData.length;
+  box.innerHTML =
+    kpi('Reels', nf.format(n), 'no período') +
+    kpi('Alcance total', nf.format(reelsData.reduce((s, p) => s + p.reach, 0)), '') +
+    kpi('Alcance médio', nf.format(avgOf(reelsData, 'reach')), 'mediana ' + nf.format(Math.round(medOf(reelsData, 'reach')))) +
+    kpi('Views totais', nf.format(reelsData.reduce((s, p) => s + p.views, 0)), '') +
+    kpi('Views médias', nf.format(avgOf(reelsData, 'views')), '') +
+    kpi('Watch time total', fmtWatchTotal(reelsData.reduce((s, p) => s + p.watchTotal, 0)), '') +
+    kpi('Watch médio/Reel', fmtWatchAvg(avgOf(reelsData, 'watchAvg')), 'por visualização') +
+    kpi('Interações médias', nf.format(avgOf(reelsData, 'eng')), '') +
+    kpi('Compart. médios', nf.format(avgOf(reelsData, 'shares')), '') +
+    kpi('Salvam. médios', nf.format(avgOf(reelsData, 'saved')), '') +
+    kpi('Visitas perfil médias', nf.format(avgOf(reelsData, 'profileVisits')), '');
+  renderReelsTable();
+  document.querySelectorAll('#panel-reels th[data-rk]').forEach(th => th.addEventListener('click', () => {
+    const k = th.dataset.rk; if (reelSort.k === k) reelSort.d = -reelSort.d; else { reelSort.k = k; reelSort.d = -1; }
+    renderReelsTable();
+  }));
+
+  // Padrões por tema
+  const medReachAll = MED.reach;
+  const byTheme = {};
+  reelsData.forEach(p => classifyThemes(p.fullCaption).forEach(t => (byTheme[t] = byTheme[t] || []).push(p)));
+  const patt = Object.entries(byTheme).sort((a, b) => avgOf(b[1], 'reach') - avgOf(a[1], 'reach')).map(([t, arr]) => {
+    const vs = medReachAll ? ((avgOf(arr, 'reach') - medReachAll) / medReachAll * 100) : 0;
+    return `<div class="postcard"><div class="cap2">${t} <span class="muted" style="font-weight:400">— ${arr.length} Reel${arr.length > 1 ? 's' : ''}</span> ${arr.length === 1 ? '<span class="flag">hipótese: 1 ocorrência</span>' : ''} ${AUTO_FLAG}</div>
+      <div class="metrics"><span>Alcance médio <b>${nf.format(avgOf(arr, 'reach'))}</b> (${pf(vs)} vs mediana geral)</span><span>Views <b>${nf.format(avgOf(arr, 'views'))}</b></span><span>Watch <b>${fmtWatchAvg(avgOf(arr, 'watchAvg'))}</b></span><span>Compart. <b>${nf.format(avgOf(arr, 'shares'))}</b></span><span>Salvam. <b>${nf.format(avgOf(arr, 'saved'))}</b></span></div>
+      <div class="muted" style="font-size:11px">${refLinks(arr.slice().sort((a, b) => b.reach - a.reach))}</div></div>`;
+  }).join('');
+  document.getElementById('reelsPatterns').innerHTML = patt || '<div class="muted">Sem temas detectáveis por legenda.</div>';
+
+  // Watch time
+  const byWatch = reelsData.slice().sort((a, b) => b.watchTotal - a.watchTotal);
+  const top = byWatch.slice(0, 5);
+  const totalW = reelsData.reduce((s, p) => s + p.watchTotal, 0);
+  const topShare = totalW ? (byWatch[0].watchTotal / totalW * 100) : 0;
+  let watchHtml = top.map(p => {
+    const flags = [];
+    if (p.reach >= MED.reach && p.watchTotal >= medOf(reelsData, 'watchTotal')) flags.push('alto watch + alto alcance');
+    if (p.watchTotal >= medOf(reelsData, 'watchTotal') && p.shares < MED.shares) flags.push('alto watch + baixo compart.');
+    if (p.views >= avgOf(reelsData, 'views') && p.watchAvg < avgOf(reelsData, 'watchAvg')) flags.push('muitas views + watch médio relativamente baixo');
+    return `<div class="geo-row" style="border-bottom:1px solid #f0ede8;padding:6px 0"><span style="flex:1">${(p.caption || '(sem legenda)').slice(0, 50)} <a href="${p.link}" target="_blank">↗</a> ${flags.map(f => `<span class="themetag">${f}</span>`).join('')}</span><span class="tag">watch ${fmtWatchTotal(p.watchTotal)}</span></div>`;
+  }).join('');
+  watchHtml += `<div class="muted" style="font-size:11px;margin-top:6px">Concentração: o Reel de maior watch time responde por ${topShare.toFixed(0)}% do total ${topShare >= 40 ? '— poucos Reels puxam a média para cima.' : '.'}</div>`;
+  document.getElementById('reelsWatch').innerHTML = watchHtml;
+
+  // Replicar
+  const rep = reelsData.slice().sort((a, b) => (b.shares * 20 + b.reach) - (a.shares * 20 + a.reach)).slice(0, 4);
+  document.getElementById('reelsReplicate').innerHTML = rep.map(p => {
+    const themes = classifyThemes(p.fullCaption);
+    const obj = p.shares >= MED.shares ? 'Alcance / reconhecimento (partilha)' : p.saved >= MED.saved ? 'Autoridade (salvamentos)' : 'Engajamento';
+    const conf = confidence(p);
+    return `<div class="postcard"><div class="cap2">${(p.caption || '(sem legenda)').slice(0, 70)} <a href="${p.link}" target="_blank" style="font-weight:400">↗</a> <span style="float:right">${confBadge(conf)}</span></div>
+      ${metricsLine(p, ['reach', 'views', 'eng', 'shares', 'saved'])}
+      <div class="why"><b>Padrão detectado:</b> ${themes.length ? themes.map(t => `<span class="themetag">${t}</span>`).join('') : 'sem tema claro'} ${AUTO_FLAG} · <b>Objetivo recomendado:</b> ${obj}</div>
+      <div class="why"><b>O que vale replicar:</b> o tema/ângulo e o formato Reel — sem afirmar gancho ou edição (não há dado audiovisual na fonte).</div>
+      <div class="muted" style="font-size:11px">Aparece em: ${membBadges(p.link)} · <a href="#" onclick="openInConteudos('${p.link}');return false">ver detalhe em Conteúdos ↗</a></div></div>`;
+  }).join('');
+}
+
+// ================= CONTEÚDOS =================
+let contData = [], contSort = { k: 'ts', d: -1 }, contFilter = { fmt: '', collab: '', tema: '', desempenho: '', flag: '', q: '' };
+const cVal = (p, k) => ({ ts: p.ts, reach: p.reach, views: p.views, eng: p.eng, rate: p.rate, shares: p.shares, saved: p.saved }[k]);
+function contFilterUI() {
+  const fmts = [...new Set(posts.map(p => p.type))];
+  const temas = [...new Set(posts.flatMap(p => classifyThemes(p.fullCaption)))];
+  const box = document.getElementById('contFilters');
+  box.innerHTML = `
+    <input id="cf-q" placeholder="buscar na legenda…" style="font:inherit;padding:6px 9px;border:1px solid #e8e5e0;border-radius:8px;min-width:180px">
+    <select id="cf-fmt" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px"><option value="">Formato: todos</option>${fmts.map(f => `<option>${f}</option>`).join('')}</select>
+    <select id="cf-collab" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px"><option value="">Collab: todos</option><option>Provável Collab</option><option>Possível Collab</option><option>Não identificado como Collab</option></select>
+    <select id="cf-tema" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px"><option value="">Tema: todos</option>${temas.map(t => `<option>${t}</option>`).join('')}</select>
+    <select id="cf-des" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px"><option value="">Desempenho: todos</option><option value="acima">Acima da média (alcance)</option><option value="abaixo">Abaixo da média (alcance)</option></select>
+    <select id="cf-flag" style="font:inherit;padding:6px;border:1px solid #e8e5e0;border-radius:8px"><option value="">Aparece em: qualquer</option><option value="test">Candidato a Teste</option><option value="rec">Recomendado</option><option value="diag">Citado no Diagnóstico</option><option value="obj">Em Objetivos</option></select>`;
+  const bind = (id, key) => document.getElementById(id).addEventListener('input', e => { contFilter[key] = e.target.value; drawCont(); });
+  bind('cf-q', 'q'); bind('cf-fmt', 'fmt'); bind('cf-collab', 'collab'); bind('cf-tema', 'tema'); bind('cf-des', 'desempenho'); bind('cf-flag', 'flag');
+}
+function contMatch(p) {
+  const f = contFilter;
+  if (f.fmt && p.type !== f.fmt) return false;
+  if (f.collab && collabOf(p).txt !== f.collab) return false;
+  if (f.tema && !classifyThemes(p.fullCaption).includes(f.tema)) return false;
+  if (f.desempenho === 'acima' && p.reach < MED.reach) return false;
+  if (f.desempenho === 'abaixo' && p.reach >= MED.reach) return false;
+  if (f.flag) { const m = MEMB[p.link] || {}; if (f.flag === 'obj' ? !(m.obj && m.obj.length) : !m[f.flag]) return false; }
+  if (f.q && !norm(p.fullCaption).includes(norm(f.q))) return false;
+  return true;
+}
+function drawCont() {
+  const list = posts.filter(contMatch).sort((a, b) => (cVal(a, contSort.k) - cVal(b, contSort.k)) * contSort.d);
+  document.querySelectorAll('[id^="c-"]').forEach(e => { if (e.classList && e.classList.contains('arrow')) e.textContent = ''; });
+  const ind = document.getElementById('c-' + contSort.k); if (ind) ind.textContent = contSort.d < 0 ? '▼' : '▲';
+  document.getElementById('contRows').innerHTML = list.map(p => {
+    const th = themeOf(p), co = collabOf(p);
+    return `<tr class="cont-row" data-link="${p.link}" style="cursor:pointer">
+      <td class="muted" style="white-space:nowrap">${p.dateStr}</td>
+      <td class="cap">${(p.caption || '(sem legenda)').slice(0, 44)}<br><span class="tag">${p.type}</span>${isCollab(p) ? '<span class="conf baixa">' + co.txt + '</span>' : ''} <span class="muted" style="font-size:10px">${p.reach >= MED.reach ? '↑med' : '↓med'}</span></td>
+      <td class="num">${nf.format(p.reach)}</td><td class="num">${nf.format(p.views)}</td>
+      <td class="num">${nf.format(p.eng)}</td><td class="num">${(p.rate * 100).toFixed(1)}%</td>
+      <td class="num">${nf.format(p.shares)}</td><td class="num">${nf.format(p.saved)}</td>
+    </tr><tr class="cont-detail" id="det-${btoa(unescape(encodeURIComponent(p.link))).replace(/[^A-Za-z0-9]/g, '')}" style="display:none"><td colspan="8"></td></tr>`;
+  }).join('');
+  document.getElementById('contCount').textContent = `${list.length} de ${posts.length} posts`;
+  document.querySelectorAll('.cont-row').forEach(tr => tr.addEventListener('click', () => toggleDetail(tr.dataset.link)));
+}
+const detId = link => 'det-' + btoa(unescape(encodeURIComponent(link))).replace(/[^A-Za-z0-9]/g, '');
+function toggleDetail(link, force) {
+  const row = document.getElementById(detId(link)); if (!row) return;
+  const p = posts.find(x => x.link === link); if (!p) return;
+  const open = force || row.style.display === 'none';
+  if (!open) { row.style.display = 'none'; return; }
+  const th = themeOf(p), co = collabOf(p);
+  const objList = (MEMB[link] && MEMB[link].obj) || [];
+  row.querySelector('td').innerHTML = `
+    <div style="padding:8px 4px">
+      <div class="metrics">${metricsLine(p, ['date', 'format', 'reach', 'views', 'eng', 'rate', 'shares', 'saved', 'comments', 'visits', 'follows'])}${p.isReel ? `<span>Watch médio <b>${fmtWatchAvg(p.watchAvg)}</b></span><span>Watch total <b>${fmtWatchTotal(p.watchTotal)}</b></span>` : ''}</div>
+      <div class="why"><b>Tema:</b> ${th.txt} ${th.manual ? '<span class="flag">ajuste manual</span>' : AUTO_FLAG}${th.low ? ' <span class="conf baixa">classificação incerta</span>' : ''}</div>
+      <div class="why"><b>Collab:</b> ${co.txt} ${co.manual ? '<span class="flag">ajuste manual</span>' : '<span class="muted">(automático · conf. ' + p.collabConf + ')</span>'}</div>
+      <div class="why"><b>Bem ranqueado nos objetivos:</b> ${objList.length ? objList.join(', ') : '<span class="na">nenhum no top 5</span>'}</div>
+      <div class="why"><b>Aparece em:</b> ${membBadges(link)}</div>
+      <div class="why"><b>O que vale replicar:</b> formato ${p.type}${classifyThemes(p.fullCaption).length ? ' · ' + classifyThemes(p.fullCaption).join(', ') : ''} ${AUTO_FLAG}</div>
+      <div class="muted" style="font-size:11px"><b>Limitações:</b> sem retenção/duração de Reels, sem seguidores gerados p/ Reels, sem vendas, classificações automáticas por legenda. <a href="${p.link}" target="_blank">Abrir no Instagram ↗</a></div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e8e5e0">
+        <b style="font-size:12px">Ajuste manual (salvo só no seu navegador):</b><br>
+        <input id="ov-tema-${detId(link)}" placeholder="tema" value="${(OVERRIDES[link] && OVERRIDES[link].tema) || ''}" style="font:inherit;padding:4px 8px;border:1px solid #e8e5e0;border-radius:6px;margin:4px 4px 0 0">
+        <input id="ov-obj-${detId(link)}" placeholder="objetivo" value="${(OVERRIDES[link] && OVERRIDES[link].objetivo) || ''}" style="font:inherit;padding:4px 8px;border:1px solid #e8e5e0;border-radius:6px;margin:4px 4px 0 0">
+        <input id="ov-slot-${detId(link)}" placeholder="slot" value="${(OVERRIDES[link] && OVERRIDES[link].slot) || ''}" style="font:inherit;padding:4px 8px;border:1px solid #e8e5e0;border-radius:6px;margin:4px 4px 0 0">
+        <select id="ov-collab-${detId(link)}" style="font:inherit;padding:4px;border:1px solid #e8e5e0;border-radius:6px;margin:4px 4px 0 0">
+          <option value="">Collab: (automático)</option><option${co.manual && co.txt === 'Provável Collab' ? ' selected' : ''}>Provável Collab</option><option${co.manual && co.txt === 'Possível Collab' ? ' selected' : ''}>Possível Collab</option><option${co.manual && co.txt === 'Não identificado como Collab' ? ' selected' : ''}>Não identificado como Collab</option></select>
+        <button id="ov-save-${detId(link)}" class="tag" style="cursor:pointer;border:1px solid #a05a2c;color:#a05a2c;padding:4px 10px">Salvar ajuste</button>
+        <span id="ov-msg-${detId(link)}" class="muted" style="font-size:11px"></span>
+      </div>
+    </div>`;
+  row.style.display = '';
+  const g = s => document.getElementById(s + detId(link));
+  g('ov-save-').addEventListener('click', () => {
+    const ok = saveOverride(link, { tema: g('ov-tema-').value.trim(), objetivo: g('ov-obj-').value.trim(), slot: g('ov-slot-').value.trim(), collab: g('ov-collab-').value });
+    g('ov-msg-').textContent = ok ? '✓ salvo' : 'não foi possível salvar neste ambiente';
+    if (ok) { drawCont(); setTimeout(() => toggleDetail(link, true), 0); }
+  });
+}
+function openInConteudos(link) {
+  const btn = [...document.querySelectorAll('nav.topnav button')].find(b => b.dataset && b.dataset.id === 'conteudos');
+  if (btn) selectTab('conteudos', btn);
+  contFilter = { fmt: '', collab: '', tema: '', desempenho: '', flag: '', q: '' };
+  drawCont(); toggleDetail(link, true);
+  const row = document.getElementById(detId(link)); if (row && row.scrollIntoView) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function renderConteudos() {
+  contFilterUI();
+  document.querySelectorAll('#panel-conteudos th[data-ck]').forEach(th => th.addEventListener('click', () => {
+    const k = th.dataset.ck; if (contSort.k === k) contSort.d = -contSort.d; else { contSort.k = k; contSort.d = -1; }
+    drawCont();
+  }));
+  drawCont();
+}
+
+// ============================================================
+// ETAPA 5 — Comparativos, Horários e Formatos
+// ============================================================
+let DATA = null; // referência aos dados carregados (reutilização)
+const meanField = (arr, k) => arr.length ? arr.reduce((s, r) => s + (r[k] || 0), 0) / arr.length : 0;
+const statusOf = pct => pct === null ? 'sem base' : Math.abs(pct) < 2 ? 'estável' : pct > 0 ? 'crescimento' : 'queda';
+const statusCls = pct => pct === null ? 'flat' : Math.abs(pct) < 2 ? 'flat' : pct > 0 ? 'up' : 'down';
+
+// posts do período anterior normalizados (mesma forma que `posts`), a partir de mediaPrev enriquecido
+function prevPosts() {
+  return (DATA.mediaPrev || []).map(m => ({
+    ts: new Date(m.timestamp).getTime(), date: m.timestamp.slice(0, 10),
+    type: (m.media_type || '').replace('CAROUSEL_ALBUM', 'CARROSSEL').replace('IMAGE', 'FOTO'),
+    reach: m.media_reach || 0, views: m.media_views || 0, eng: m.media_engagement || 0,
+    shares: m.media_shares || 0, saved: m.media_saved || 0, comments: m.media_comments_count || 0,
+    likes: m.media_like_count || 0, rate: m.media_reach ? (m.media_engagement || 0) / m.media_reach : 0
+  }));
+}
+// série diária combinada (dailyPrev + dailyCur) p/ recortar qualquer intervalo
+function dailyAll() {
+  const map = {};
+  (DATA.dailyPrev || []).forEach(r => map[r.date] = { date: r.date, reach: r.reach || 0, views: r.views || 0, ti: r.total_interactions || 0 });
+  (DATA.dailyCur || []).forEach(r => map[r.date] = { date: r.date, reach: r.reach || 0, views: r.views || 0, ti: r.total_interactions || 0, fc: r.follower_count || 0 });
+  return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+}
+const inRange = (d, a, b) => d >= a && d <= b;
+function sumRange(daily, a, b) { const r = daily.filter(x => inRange(x.date, a, b)); return { reach: r.reduce((s, x) => s + x.reach, 0), views: r.reduce((s, x) => s + x.views, 0), ti: r.reduce((s, x) => s + x.ti, 0) }; }
+const ymdLocal = dt => dt.toISOString().slice(0, 10);
+
+function cmpPeriods(mode) {
+  const daily = dailyAll();
+  const allDates = daily.map(x => x.date).sort();
+  const minD = allDates[0], maxD = allDates[allDates.length - 1];
+  const cur = posts, prev = prevPosts();
+  if (mode === '30d') {
+    return {
+      label: 'Últimos 30 dias × 30 dias anteriores',
+      curTot: sumRange(daily, DATA.range.curStart, DATA.range.curEnd), prevTot: sumRange(daily, DATA.range.prevStart, DATA.range.prevEnd),
+      curPosts: cur, prevPosts: prev, curLabel: DATA.range.curStart + '→' + DATA.range.curEnd, prevLabel: DATA.range.prevStart + '→' + DATA.range.prevEnd, partial: false
+    };
+  }
+  // MTD
+  const today = new Date();
+  const y = today.getFullYear(), mo = today.getMonth();
+  const day = today.getDate();
+  const curStart = ymdLocal(new Date(y, mo, 1));
+  const curEnd = ymdLocal(new Date(y, mo, Math.max(1, day - 1))); // até ontem
+  const prevMonthStart = ymdLocal(new Date(y, mo - 1, 1));
+  const prevEquivEnd = ymdLocal(new Date(y, mo - 1, Math.max(1, day - 1)));
+  const prevFullEnd = ymdLocal(new Date(y, mo, 0)); // último dia do mês anterior
+  const pEnd = mode === 'mtdfull' ? prevFullEnd : prevEquivEnd;
+  const cP = cur.filter(p => inRange(p.date, curStart, curEnd)), pP = prev.filter(p => inRange(p.date, prevMonthStart, pEnd)).concat(cur.filter(p => inRange(p.date, prevMonthStart, pEnd)));
+  return {
+    label: mode === 'mtdfull' ? 'Mês atual (parcial) × mês anterior completo' : 'Mês atual × mês anterior (equivalente)',
+    curTot: sumRange(daily, curStart, curEnd), prevTot: sumRange(daily, prevMonthStart, pEnd),
+    curPosts: cP, prevPosts: pP, curLabel: curStart + '→' + curEnd, prevLabel: prevMonthStart + '→' + pEnd,
+    partial: mode === 'mtdfull', coverageWarn: (minD > prevMonthStart) ? ('dados diários começam em ' + minD) : ''
+  };
+}
+
+function cmpRow(label, curV, prevV, fmt, opts) {
+  opts = opts || {};
+  if (opts.noPrev) return `<tr><td>${label}</td><td>${opts.prevText || '—'}</td><td><b>${fmt(curV)}</b></td><td>—</td><td>—</td><td class="muted">${opts.note || ''}</td></tr>`;
+  const diff = curV - prevV;
+  const pct = prevV === 0 ? null : (diff / prevV) * 100;
+  const cls = statusCls(pct);
+  return `<tr><td>${label}</td><td>${fmt(prevV)}</td><td><b>${fmt(curV)}</b></td>
+    <td class="${cls}">${(diff >= 0 ? '+' : '') + fmt(Math.round(diff))}</td>
+    <td class="${cls}">${pct === null ? '<span class="muted">sem base</span>' : pf(pct)}</td>
+    <td class="${cls}" style="text-align:left">${pct === null ? 'Sem base anterior para cálculo percentual.' : statusOf(pct)}</td></tr>`;
+}
+let cmpChartRef = null;
+function renderComparativos() {
+  const sel = document.getElementById('cmpMode');
+  if (!sel._bound) { sel.addEventListener('change', () => drawComparativos(sel.value)); sel._bound = true; }
+  drawComparativos(sel.value || '30d');
+}
+function drawComparativos(mode) {
+  const C = cmpPeriods(mode);
+  const money = n => nf.format(Math.round(n));
+  const cP = C.curPosts, pP = C.prevPosts;
+  const engCur = C.curTot.reach ? C.curTot.ti / C.curTot.reach * 100 : 0;
+  const engPrev = C.prevTot.reach ? C.prevTot.ti / C.prevTot.reach * 100 : 0;
+  document.getElementById('cmpRange').textContent = `atual ${C.curLabel} · anterior ${C.prevLabel}` + (C.partial ? ' (mês parcial × mês completo — comparação assimétrica)' : '') + (C.coverageWarn ? ' · ' + C.coverageWarn : '');
+  let rows = '';
+  rows += cmpRow('Alcance total', C.curTot.reach, C.prevTot.reach, money);
+  rows += cmpRow('Visualizações totais', C.curTot.views, C.prevTot.views, money);
+  rows += cmpRow('Interações totais', C.curTot.ti, C.prevTot.ti, money);
+  rows += cmpRow('Taxa de engajamento', engCur, engPrev, n => n.toFixed(1) + '%');
+  rows += cmpRow('Posts publicados', cP.length, pP.length, n => nf.format(n));
+  rows += cmpRow('Alcance médio por post', cP.length ? C.curTot.reach / cP.length : 0, pP.length ? C.prevTot.reach / pP.length : 0, money);
+  rows += cmpRow('Visualizações médias por post', cP.length ? C.curTot.views / cP.length : 0, pP.length ? C.prevTot.views / pP.length : 0, money);
+  rows += cmpRow('Interações médias por post', cP.length ? C.curTot.ti / cP.length : 0, pP.length ? C.prevTot.ti / pP.length : 0, money);
+  rows += cmpRow('Compartilhamentos médios', meanField(cP, 'shares'), meanField(pP, 'shares'), n => n.toFixed(1));
+  rows += cmpRow('Salvamentos médios', meanField(cP, 'saved'), meanField(pP, 'saved'), n => n.toFixed(1));
+  rows += cmpRow('Comentários médios', meanField(cP, 'comments'), meanField(pP, 'comments'), n => n.toFixed(1));
+  const followCur = dailyAll().filter(x => inRange(x.date, mode === '30d' ? DATA.range.curStart : C.curLabel.split('→')[0], C.curLabel.split('→')[1])).reduce((s, x) => s + (x.fc || 0), 0);
+  rows += cmpRow('Novos seguidores', followCur, null, n => '+' + money(n), { noPrev: true, prevText: 'indisponível', note: 'A fonte limita o histórico de seguidores/dia a 30 dias — sem período anterior comparável.' });
+  document.getElementById('cmpTable').innerHTML = `<table class="cmp-tbl"><thead><tr><th>Métrica</th><th>Período anterior</th><th>Período atual</th><th>Diferença</th><th>Variação</th><th>Interpretação</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  // Gráfico (log)
+  const build = () => {
+    const ctx = document.getElementById('cmpChart'); if (!ctx) return;
+    if (cmpChartRef) cmpChartRef.destroy();
+    cmpChartRef = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Alcance', 'Views', 'Interações', 'Posts'],
+        datasets: [
+          { label: 'Anterior', data: [C.prevTot.reach, C.prevTot.views, C.prevTot.ti, pP.length], backgroundColor: '#d9b48f' },
+          { label: 'Atual', data: [C.curTot.reach, C.curTot.views, C.curTot.ti, cP.length], backgroundColor: '#a05a2c' }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { type: 'logarithmic', ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 11 } } } } }
+    });
+  };
+  if (document.getElementById('panel-comparativos').classList.contains('active')) build(); else TAB_ONCE['comparativos'] = build;
+
+  // Principal mudança
+  const reachPct = C.prevTot.reach ? (C.curTot.reach - C.prevTot.reach) / C.prevTot.reach * 100 : null;
+  const volPct = pP.length ? (cP.length - pP.length) / pP.length * 100 : null;
+  const engPct = engPrev ? (engCur - engPrev) / engPrev * 100 : null;
+  const avgReachCur = cP.length ? C.curTot.reach / cP.length : 0, avgReachPrev = pP.length ? C.prevTot.reach / pP.length : 0;
+  const avgPct = avgReachPrev ? (avgReachCur - avgReachPrev) / avgReachPrev * 100 : null;
+  let main = '';
+  if (volPct !== null && engPct !== null && volPct >= 8 && engPct < -8) main = `O volume de posts variou <b>${pf(volPct)}</b>, mas a taxa de engajamento ${engPct < 0 ? 'caiu' : 'subiu'} <b>${pf(engPct)}</b> — maior produção sem crescimento proporcional das interações.`;
+  else if (reachPct !== null && avgPct !== null) main = `O alcance total variou <b>${pf(reachPct)}</b> e o alcance médio por post <b>${pf(avgPct)}</b> — ${Math.abs((reachPct || 0) - (avgPct || 0)) > 10 ? 'a diferença indica que parte da variação veio do volume de posts, não só do desempenho por publicação.' : 'crescimento distribuído entre volume e desempenho por post.'}`;
+  else main = `Comparação com base limitada: ${cP.length} posts no período atual vs ${pP.length} no anterior.`;
+  document.getElementById('cmpMain').innerHTML = main + (C.partial ? ' <span class="flag">mês parcial × completo</span>' : '');
+
+  // Outros achados (máx 4)
+  const f = [];
+  if (reachPct !== null && avgPct !== null && Math.abs(reachPct - avgPct) > 12) f.push(`Total vs média: alcance total ${pf(reachPct)} enquanto o alcance médio por post ${pf(avgPct)} — sinal de que o <b>volume</b> pesou no resultado.`);
+  const shrCur = meanField(cP, 'shares'), shrPrev = meanField(pP, 'shares');
+  if (shrPrev) f.push(`Compartilhamentos médios ${pf((shrCur - shrPrev) / shrPrev * 100)} (${shrCur.toFixed(1)} vs ${shrPrev.toFixed(1)}) — distribuição orgânica ${shrCur >= shrPrev ? 'em alta' : 'em queda'}.`);
+  const reaches = cP.map(p => p.reach).sort((a, b) => b - a);
+  if (reaches.length >= 3) { const top = reaches[0], med = median(reaches); if (med && top >= 2 * med) f.push(`Dependência de outlier: o maior post (${nf.format(top)}) é ${(top / med).toFixed(1)}× a mediana (${nf.format(Math.round(med))}) — média puxada por um conteúdo.`); }
+  const viewsPct = C.prevTot.views ? (C.curTot.views - C.prevTot.views) / C.prevTot.views * 100 : null;
+  if (viewsPct !== null && reachPct !== null && Math.abs(viewsPct - reachPct) > 12) f.push(`Views vs alcance: views ${pf(viewsPct)} e alcance ${pf(reachPct)} — ${viewsPct > reachPct ? 'mais repetição de visualização por pessoa' : 'alcance cresceu mais que as views'}.`);
+  document.getElementById('cmpFindings').innerHTML = f.slice(0, 4).map(x => `<div class="why">• ${x}</div>`).join('') || '<div class="muted">Sem achados complementares relevantes no período.</div>';
+}
+
+// ================= HORÁRIOS =================
+const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const FAIXAS = [['Madrugada', 0, 5], ['Manhã', 6, 11], ['Início tarde', 12, 14], ['Fim tarde', 15, 17], ['Noite', 18, 23]];
+function spParts(ts) {
+  const s = new Date(ts).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour12: false, weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  // fallback robusto: derive hour/weekday via formatToParts
+  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour12: false, weekday: 'short', hour: '2-digit' });
+  const parts = dtf.formatToParts(new Date(ts));
+  const wd = parts.find(p => p.type === 'weekday').value;
+  let hh = parseInt(parts.find(p => p.type === 'hour').value, 10); if (hh === 24) hh = 0;
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { dow: map[wd], hour: hh };
+}
+const faixaOf = h => { for (let i = 0; i < FAIXAS.length; i++) if (h >= FAIXAS[i][1] && h <= FAIXAS[i][2]) return i; return 4; };
+const confLabel = n => n >= 5 ? 'leitura mais confiável' : n >= 3 ? 'amostra pequena' : n === 2 ? 'amostra muito pequena' : 'hipótese (1 post)';
+const confClass = n => n >= 5 ? 'alta' : n >= 3 ? 'media' : 'baixa';
+let hrMetric = 'reach', hrFmt = '';
+function hrPosts() { return posts.filter(p => !hrFmt || p.type === hrFmt).map(p => Object.assign({}, p, spParts(p.ts))); }
+function renderHorarios() {
+  const sf = document.getElementById('hrFmt');
+  if (!sf._bound) { [...new Set(posts.map(p => p.type))].forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sf.appendChild(o); }); sf.addEventListener('change', () => { hrFmt = sf.value; drawHorarios(); }); document.getElementById('hrMetric').addEventListener('change', e => { hrMetric = e.target.value; drawHorarios(); }); sf._bound = true; }
+  drawHorarios();
+}
+function cellStats(arr) { return { n: arr.length, reach: avgOf(arr, 'reach'), reachMed: medOf(arr, 'reach'), views: avgOf(arr, 'views'), eng: avgOf(arr, 'eng'), rate: arr.length ? arr.reduce((s, p) => s + p.rate, 0) / arr.length * 100 : 0, comments: avgOf(arr, 'comments'), shares: avgOf(arr, 'shares'), saved: avgOf(arr, 'saved'), visits: avgOf(arr, 'profileVisits') }; }
+function drawHorarios() {
+  const P = hrPosts();
+  // grid[dow][faixa] = arr
+  const grid = {}; DOW.forEach((_, d) => { grid[d] = {}; FAIXAS.forEach((_, f) => grid[d][f] = []); });
+  P.forEach(p => grid[p.dow][faixaOf(p.hour)].push(p));
+  // max metric for color
+  let maxM = 0; DOW.forEach((_, d) => FAIXAS.forEach((_, f) => { const s = cellStats(grid[d][f]); if (grid[d][f].length) maxM = Math.max(maxM, s[hrMetric] || 0); }));
+  let html = '<table class="heat"><thead><tr><th>Faixa \\ Dia</th>' + DOW.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  FAIXAS.forEach(([fn], f) => {
+    html += `<tr><th>${fn}</th>`;
+    DOW.forEach((_, d) => {
+      const arr = grid[d][f]; const s = cellStats(arr);
+      if (!arr.length) { html += '<td style="background:#fbfaf8"><span class="s">—</span></td>'; return; }
+      const intensity = maxM ? (s[hrMetric] || 0) / maxM : 0;
+      const bg = `rgba(160,90,44,${(0.12 + intensity * 0.75).toFixed(2)})`;
+      const val = hrMetric === 'rate' ? s.rate.toFixed(1) + '%' : nf.format(Math.round(s[hrMetric]));
+      html += `<td style="background:${bg}" title="${fn} ${DOW[d]} — ${arr.length} post(s)"><div class="c">${arr.length}</div><div class="s">${val}</div></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('hrHeat').innerHTML = html;
+
+  // Publicação × desempenho
+  const byDow = DOW.map((_, d) => ({ d, arr: P.filter(p => p.dow === d) }));
+  const byFaixa = FAIXAS.map(([fn], f) => ({ f, fn, arr: P.filter(p => faixaOf(p.hour) === f) }));
+  const mostDow = byDow.slice().sort((a, b) => b.arr.length - a.arr.length)[0];
+  const mostFaixa = byFaixa.slice().sort((a, b) => b.arr.length - a.arr.length)[0];
+  const bestDowReach = byDow.filter(x => x.arr.length).sort((a, b) => avgOf(b.arr, 'reach') - avgOf(a.arr, 'reach'))[0];
+  const bestDowEng = byDow.filter(x => x.arr.length).sort((a, b) => avgOf(b.arr, 'eng') - avgOf(a.arr, 'eng'))[0];
+  const bestFaixaReach = byFaixa.filter(x => x.arr.length).sort((a, b) => avgOf(b.arr, 'reach') - avgOf(a.arr, 'reach'))[0];
+  const bestFaixaEng = byFaixa.filter(x => x.arr.length).sort((a, b) => avgOf(b.arr, 'eng') - avgOf(a.arr, 'eng'))[0];
+  const li = (l, v, n) => `<div class="why"><b>${l}:</b> ${v} <span class="conf ${confClass(n)}">amostra ${n} — ${confLabel(n)}</span></div>`;
+  let sum = '';
+  sum += li('Dia em que mais publicamos', DOW[mostDow.d], mostDow.arr.length);
+  sum += li('Faixa em que mais publicamos', mostFaixa.fn, mostFaixa.arr.length);
+  if (bestDowReach) sum += li('Melhor dia por alcance médio', DOW[bestDowReach.d] + ' (' + nf.format(avgOf(bestDowReach.arr, 'reach')) + ')', bestDowReach.arr.length);
+  if (bestDowEng) sum += li('Melhor dia por engajamento', DOW[bestDowEng.d] + ' (' + nf.format(avgOf(bestDowEng.arr, 'eng')) + ')', bestDowEng.arr.length);
+  if (bestFaixaReach) sum += li('Melhor faixa por alcance médio', bestFaixaReach.fn + ' (' + nf.format(avgOf(bestFaixaReach.arr, 'reach')) + ')', bestFaixaReach.arr.length);
+  if (bestFaixaEng) sum += li('Melhor faixa por engajamento', bestFaixaEng.fn + ' (' + nf.format(avgOf(bestFaixaEng.arr, 'eng')) + ')', bestFaixaEng.arr.length);
+  // melhor horário individual só com amostra >=3
+  const byHour = {}; P.forEach(p => (byHour[p.hour] = byHour[p.hour] || []).push(p));
+  const hourEnough = Object.entries(byHour).filter(([h, arr]) => arr.length >= 3).sort((a, b) => avgOf(b[1], 'reach') - avgOf(a[1], 'reach'))[0];
+  sum += hourEnough ? li('Melhor horário individual (amostra ≥3)', hourEnough[0] + 'h (' + nf.format(avgOf(hourEnough[1], 'reach')) + ' alcance)', hourEnough[1].length) : '<div class="muted" style="font-size:12px">Nenhum horário individual tem amostra ≥3 para conclusão segura.</div>';
+  sum += '<div class="muted" style="font-size:11px;margin-top:6px">O horário mais usado não é necessariamente o de melhor desempenho — por isso são exibidos separadamente.</div>';
+  document.getElementById('hrSummary').innerHTML = sum;
+
+  // Janelas com melhor desempenho (top 3 células com amostra >=2)
+  const cells = [];
+  DOW.forEach((_, d) => FAIXAS.forEach(([fn], f) => { const arr = grid[d][f]; if (arr.length >= 2) cells.push({ d, fn, arr }); }));
+  cells.sort((a, b) => avgOf(b.arr, 'reach') - avgOf(a.arr, 'reach'));
+  document.getElementById('hrWindows').innerHTML = cells.length ? cells.slice(0, 3).map(c => `<div class="postcard"><div class="cap2">${DOW[c.d]} · ${c.fn} <span class="conf ${confClass(c.arr.length)}">amostra ${c.arr.length} — ${confLabel(c.arr.length)}</span></div><div class="metrics"><span>Alcance médio <b>${nf.format(avgOf(c.arr, 'reach'))}</b></span><span>Engajamento médio <b>${nf.format(avgOf(c.arr, 'eng'))}</b></span></div></div>`).join('') : '<div class="muted">Nenhuma combinação dia×faixa tem 2+ posts — amostra insuficiente para apontar janela.</div>';
+
+  // Gaps
+  const gaps = [];
+  DOW.forEach((_, d) => FAIXAS.forEach(([fn], f) => { const n = grid[d][f].length; if (n <= 1) gaps.push(`${DOW[d]} · ${fn}${n === 1 ? ' (1 post — hipótese)' : ' (sem posts)'}`); }));
+  document.getElementById('hrGaps').innerHTML = '<div class="hint">Pouca ou nenhuma publicação — vale testar antes de concluir, não são "ruins".</div>' + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + gaps.slice(0, 12).map(g => `<span class="themetag">${g}</span>`).join('') + (gaps.length > 12 ? `<span class="muted">+${gaps.length - 12}</span>` : '') + '</div>';
+}
+
+// ================= FORMATOS =================
+function renderFormatos() {
+  const fmts = [...new Set(posts.map(p => p.type))];
+  const total = posts.length;
+  const groups = fmts.map(f => ({ f, arr: posts.filter(p => p.type === f) }));
+  // Participação
+  document.getElementById('fmtParticipacao').innerHTML = '<div style="margin-top:8px">' + groups.sort((a, b) => b.arr.length - a.arr.length).map(g => {
+    const pct = total ? g.arr.length / total * 100 : 0;
+    return `<div class="geo-row"><span class="geo-name">${g.f}</span><span class="geo-bar" style="width:${Math.max(6, pct / 100 * 200)}px"></span><span class="geo-val">${g.arr.length} posts · ${pct.toFixed(0)}%</span></div>`;
+  }).join('') + '</div>';
+
+  // Tabela KPIs
+  const head = ['Formato', 'Qtd', '% total', 'Alcance total', 'Alcance médio', 'Alcance mediano', 'Views médias', 'Interações méd', 'Tx.eng méd', 'Curtidas méd', 'Coment méd', 'Compart méd', 'Salvam méd', 'Visitas méd', 'Watch médio', 'Seguidores'];
+  let rows = groups.map(g => {
+    const a = g.arr; const isReelF = a[0] && a[0].isReel;
+    const staticFollows = a.filter(p => p.followsAvailable);
+    return `<tr><td>${g.f}</td><td>${a.length}</td><td>${(a.length / total * 100).toFixed(0)}%</td>
+      <td>${nf.format(a.reduce((s, p) => s + p.reach, 0))}</td><td>${nf.format(avgOf(a, 'reach'))}</td><td>${nf.format(Math.round(medOf(a, 'reach')))}</td>
+      <td>${nf.format(avgOf(a, 'views'))}</td><td>${nf.format(avgOf(a, 'eng'))}</td><td>${(a.reduce((s, p) => s + p.rate, 0) / a.length * 100).toFixed(1)}%</td>
+      <td>${nf.format(avgOf(a, 'likes'))}</td><td>${nf.format(avgOf(a, 'comments'))}</td><td>${nf.format(avgOf(a, 'shares'))}</td><td>${nf.format(avgOf(a, 'saved'))}</td><td>${nf.format(avgOf(a, 'profileVisits'))}</td>
+      <td>${isReelF ? fmtWatchAvg(avgOf(a, 'watchAvg')) : '<span class="na">n/a</span>'}</td>
+      <td>${staticFollows.length ? nf.format(avgOf(staticFollows, 'follows')) : '<span class="na">n/d Reels</span>'}</td></tr>`;
+  }).join('');
+  document.getElementById('fmtTable').innerHTML = `<table class="fmt-tbl"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+
+  // Rankings (considerando amostra)
+  const rk = (label, k) => { const g = groups.filter(x => x.arr.length).sort((a, b) => avgOf(b.arr, k) - avgOf(a.arr, k))[0]; return g ? `<div class="geo-row" style="border-bottom:1px solid #f0ede8;padding:5px 0"><span style="flex:1"><b>${label}:</b> ${g.f}</span><span class="tag">${k === 'reach' ? nf.format(g.arr.reduce((s, p) => s + p.reach, 0)) + ' total' : nf.format(avgOf(g.arr, k)) + ' méd'} · amostra ${g.arr.length}</span></div>` : ''; };
+  document.getElementById('fmtRanks').innerHTML =
+    rk('Melhor por alcance (total)', 'reach') + rk('Melhor por visualizações', 'views') + rk('Melhor por engajamento', 'eng') +
+    rk('Melhor por compartilhamentos', 'shares') + rk('Melhor por salvamentos', 'saved') + rk('Melhor por comentários', 'comments') + rk('Melhor por visitas ao perfil', 'profileVisits');
+
+  // Leitura estratégica (média vs mediana, outliers)
+  const leitura = groups.map(g => {
+    const a = g.arr; const avg = avgOf(a, 'reach'), med = medOf(a, 'reach');
+    const gap = med ? Math.abs(avg - med) / med : 0;
+    const days = [...new Set(a.map(p => spParts(p.ts).dow))].map(d => DOW[d]);
+    let txt = `<b>${g.f}</b> — ${a.length} posts. Alcance médio ${nf.format(avg)} vs mediana ${nf.format(Math.round(med))}.`;
+    if (gap > 0.4 && a.length >= 2) txt += ` <span class="up">A média foi puxada por um conteúdo muito acima do restante.</span>`;
+    if (a.length === 1) txt += ` <span class="flag">amostra 1 — hipótese</span>`;
+    txt += ` <span class="muted">Mais usado em: ${days.slice(0, 3).join(', ') || '—'} (sem inferir causa).</span>`;
+    return `<div class="why">• ${txt}</div>`;
+  }).join('');
+  document.getElementById('fmtLeitura').innerHTML = leitura;
+
+  // Volume vs retorno
+  const mostUsed = groups.slice().sort((a, b) => b.arr.length - a.arr.length)[0];
+  const mostEff = groups.filter(x => x.arr.length >= 2).sort((a, b) => avgOf(b.arr, 'reach') - avgOf(a.arr, 'reach'))[0];
+  const reelsShare = (posts.filter(p => p.isReel).length / total * 100);
+  let vol = '';
+  if (mostUsed && mostEff) vol += `<div class="why">Formato mais usado: <b>${mostUsed.f}</b> (${mostUsed.arr.length} posts). Formato de maior alcance médio (amostra ≥2): <b>${mostEff.f}</b> (${nf.format(avgOf(mostEff.arr, 'reach'))}). ${mostUsed.f === mostEff.f ? 'O mais usado também é o mais eficiente.' : 'O mais usado não é o de maior alcance médio — avaliar equilíbrio.'}</div>`;
+  if (reelsShare >= 60) vol += `<div class="why">⚠️ Dependência de Reels: <b>${reelsShare.toFixed(0)}%</b> das publicações. Vale testar maior diversidade de formatos.</div>`;
+  groups.forEach(g => { if (g.arr.length <= 2 && avgOf(g.arr, 'reach') >= MED.reach) vol += `<div class="why">Formato pouco explorado com resultado acima da mediana: <b>${g.f}</b> (${g.arr.length} posts, alcance médio ${nf.format(avgOf(g.arr, 'reach'))}). Candidato a testar mais.</div>`; });
+  // Frequência sugerida
+  vol += '<h3 style="margin-top:10px">Frequência sugerida por formato</h3>';
+  vol += groups.map(g => {
+    const n = g.arr.length; const avg = avgOf(g.arr, 'reach');
+    let rec = n < 2 ? 'amostra insuficiente' : avg >= MED.reach && n >= 3 ? 'manter / aumentar gradualmente' : avg >= MED.reach ? 'promissor — testar mais' : n >= 3 ? 'reduzir com cautela (avaliar função institucional/comercial)' : 'testar mais antes de concluir';
+    return `<div class="why">• <b>${g.f}</b> (${n} posts): ${rec}.</div>`;
+  }).join('');
+  vol += '<div class="muted" style="font-size:11px;margin-top:6px">Não reduzir um formato só por desempenho baixo se ele cumprir função institucional ou comercial.</div>';
+  document.getElementById('fmtVolume').innerHTML = vol;
+}
+
+// ============================================================
+// RELATÓRIO EXECUTIVO
+// ============================================================
+const REP_KEY = 'bdl_last_report_v1';
+const repYmd = d => d.toISOString().slice(0, 10);
+const parseYmd = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const dayCount = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / 86400000) + 1;
+const brDate = s => parseYmd(s).toLocaleDateString('pt-BR');
+
+function reportRange(kind, fromStr, toStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let curStart, curEnd;
+  if (kind === 'thismonth') {
+    const y = today.getFullYear(), m = today.getMonth();
+    curStart = new Date(y, m, 1); curEnd = addDays(today, -1); // até ontem
+    if (curEnd < curStart) curEnd = curStart;
+  } else if (kind === 'custom') {
+    if (!fromStr || !toStr) return null;
+    curStart = parseYmd(fromStr); curEnd = parseYmd(toStr);
+  } else { // lastmonth (padrão)
+    const y = today.getFullYear(), m = today.getMonth();
+    curStart = new Date(y, m - 1, 1); curEnd = new Date(y, m, 0); // último dia do mês anterior
+  }
+  if (isNaN(curStart) || isNaN(curEnd)) return null;
+  let days = Math.round((curEnd - curStart) / 86400000) + 1;
+  let capped = false;
+  if (days > 30) { curStart = addDays(curEnd, -29); days = 30; capped = true; }
+  const prevEnd = addDays(curStart, -1);
+  const prevStart = addDays(prevEnd, -(days - 1));
+  return { curStart: repYmd(curStart), curEnd: repYmd(curEnd), prevStart: repYmd(prevStart), prevEnd: repYmd(prevEnd), days, capped };
+}
+let repRange = null;
+function refreshRepUI() {
+  const kind = document.getElementById('repPeriod').value;
+  document.getElementById('repCustom').style.display = kind === 'custom' ? 'block' : 'none';
+  let from = document.getElementById('repFrom').value, to = document.getElementById('repTo').value;
+  if (kind === 'custom' && (!from || !to)) { document.getElementById('repSelected').textContent = 'Escolha as datas (máx. 30 dias).'; repRange = null; document.getElementById('repWarn').style.display = 'none'; return; }
+  repRange = reportRange(kind, from, to);
+  if (!repRange) { document.getElementById('repSelected').textContent = 'Selecione um período válido.'; return; }
+  if (kind === 'custom' && parseYmd(repRange.curStart) > parseYmd(repRange.curEnd)) { document.getElementById('repSelected').textContent = 'Data inicial deve ser anterior à final.'; repRange = null; return; }
+  document.getElementById('repSelected').innerHTML = `<b>Período:</b> ${brDate(repRange.curStart)} a ${brDate(repRange.curEnd)} (${repRange.days} dias)` +
+    (repRange.capped ? ' <span class="rp-pill">ajustado p/ 30 dias</span>' : '') +
+    `<br><b>Comparado com:</b> ${brDate(repRange.prevStart)} a ${brDate(repRange.prevEnd)} (mesma duração)`;
+  const warn = document.getElementById('repWarn');
+  if (kind === 'thismonth') { warn.style.display = 'block'; warn.innerHTML = '⚠️ Para maior confiabilidade, recomenda-se gerar o relatório entre 24 e 48 horas após o encerramento do período analisado, pois os dados do Instagram podem sofrer atraso de atualização.'; }
+  else warn.style.display = 'none';
+}
+function showLastReport() {
+  let last = null; try { last = JSON.parse(localStorage.getItem(REP_KEY) || 'null'); } catch (e) {}
+  document.getElementById('repLast').innerHTML = last ? `Último relatório: <b>${last.generatedAt}</b> · período ${last.period}` : 'Nenhum relatório gerado ainda.';
+}
+
+// ---- estatísticas de um conjunto de posts ----
+function repMap(rows) {
+  return (rows || []).map(m => ({
+    ts: new Date(m.timestamp).getTime(), date: m.timestamp.slice(0, 10),
+    caption: (m.media_caption || '').split('\n')[0], type: (m.media_type || '').replace('CAROUSEL_ALBUM', 'CARROSSEL').replace('IMAGE', 'FOTO'),
+    link: m.media_permalink, reach: m.media_reach || 0, views: m.media_views || 0, eng: m.media_engagement || 0,
+    likes: m.media_like_count || 0, comments: m.media_comments_count || 0, saved: m.media_saved || 0, shares: m.media_shares || 0,
+    rate: m.media_reach ? (m.media_engagement || 0) / m.media_reach : 0
+  }));
+}
+function repStats(ps, daily, a, b) {
+  const d = (daily || []).filter(x => x.date >= a && x.date <= b);
+  const reachT = d.reduce((s, x) => s + (x.reach || 0), 0), viewsT = d.reduce((s, x) => s + (x.views || 0), 0), tiT = d.reduce((s, x) => s + (x.total_interactions || 0), 0);
+  const n = ps.length;
+  const totReach = ps.reduce((s, p) => s + p.reach, 0);
+  const top = ps.slice().sort((x, y) => y.reach - x.reach)[0];
+  return {
+    n, reachT, viewsT, tiT, engRate: reachT ? tiT / reachT * 100 : 0,
+    avgReach: n ? totReach / n : 0, avgEng: n ? ps.reduce((s, p) => s + p.eng, 0) / n : 0,
+    avgShares: n ? ps.reduce((s, p) => s + p.shares, 0) / n : 0, avgSaved: n ? ps.reduce((s, p) => s + p.saved, 0) / n : 0,
+    avgComments: n ? ps.reduce((s, p) => s + p.comments, 0) / n : 0,
+    medReach: median(ps.map(p => p.reach)), concentration: totReach && top ? top.reach / totReach : 0, top
+  };
+}
+const rpct = (c, p) => (p === null || p === undefined || p === 0) ? null : ((c - p) / p) * 100;
+const trendSpan = pct => pct === null ? '<span class="neu">sem base</span>' : Math.abs(pct) < 2 ? `<span class="neu">${pf(pct)}</span>` : pct > 0 ? `<span class="pos">▲ ${pf(pct)}</span>` : `<span class="neg">▼ ${pf(pct)}</span>`;
+
+async function generateReport() {
+  if (!repRange) { alert('Selecione um período válido.'); return; }
+  const R = repRange;
+  const btn = document.getElementById('repGenerate'); btn.textContent = 'Gerando…'; btn.disabled = true;
+  try {
+    const mediaFields = ['timestamp', 'media_caption', 'media_type', 'media_permalink', 'media_reach', 'media_engagement', 'media_like_count', 'media_comments_count', 'media_saved', 'media_shares', 'media_views'];
+    const [dRes, mRes] = await Promise.all([
+      window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['date', 'reach', 'views', 'total_interactions'], date_from: R.prevStart, date_to: R.curEnd }),
+      window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: mediaFields, date_from: R.prevStart, date_to: R.curEnd })
+    ]);
+    const daily = unwrap(dRes), allMedia = repMap(unwrap(mRes));
+    // seguidores só se o período atual estiver dentro dos últimos 30 dias
+    let followersCur = null;
+    const today = new Date(); const daysAgoStart = Math.round((today - parseYmd(R.curStart)) / 86400000);
+    if (daysAgoStart <= 30) { try { const fRes = await window.cowork.callMcpTool(TOOL, { connector: 'instagram', fields: ['date', 'follower_count'], date_from: R.curStart, date_to: R.curEnd }); followersCur = unwrap(fRes).reduce((s, x) => s + (x.follower_count || 0), 0); } catch (e) { followersCur = null; } }
+    const curP = allMedia.filter(p => p.date >= R.curStart && p.date <= R.curEnd);
+    const prevP = allMedia.filter(p => p.date >= R.prevStart && p.date <= R.prevEnd);
+    const cur = repStats(curP, daily, R.curStart, R.curEnd);
+    const prev = repStats(prevP, daily, R.prevStart, R.prevEnd);
+    document.getElementById('reportDoc').innerHTML = buildReportDoc(R, cur, prev, curP, prevP, followersCur);
+    document.getElementById('reportModal').classList.remove('open');
+    document.getElementById('reportOverlay').classList.add('open');
+    const stamp = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    try { localStorage.setItem(REP_KEY, JSON.stringify({ generatedAt: stamp, period: brDate(R.curStart) + '–' + brDate(R.curEnd) })); } catch (e) {}
+    showLastReport();
+  } catch (e) {
+    alert('Não foi possível gerar o relatório: ' + e.message);
+  } finally { btn.textContent = 'Gerar relatório'; btn.disabled = false; }
+}
+
+function buildReportDoc(R, cur, prev, curP, prevP, followersCur) {
+  const money = n => nf.format(Math.round(n));
+  const genStamp = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // variações
+  const vReach = rpct(cur.reachT, prev.reachT), vViews = rpct(cur.viewsT, prev.viewsT), vTi = rpct(cur.tiT, prev.tiT);
+  const vEngRate = rpct(cur.engRate, prev.engRate), vPosts = rpct(cur.n, prev.n), vAvgReach = rpct(cur.avgReach, prev.avgReach);
+  const vAvgEng = rpct(cur.avgEng, prev.avgEng), vShares = rpct(cur.avgShares, prev.avgShares);
+
+  // formatos (período atual)
+  const fmts = [...new Set(curP.map(p => p.type))];
+  const fmtRows = fmts.map(f => { const a = curP.filter(p => p.type === f); return { f, n: a.length, avgReach: a.reduce((s, p) => s + p.reach, 0) / a.length, avgEng: a.reduce((s, p) => s + p.eng, 0) / a.length, avgShares: a.reduce((s, p) => s + p.shares, 0) / a.length, avgSaved: a.reduce((s, p) => s + p.saved, 0) / a.length }; });
+  const forca = r => { const cand = [['alcance', r.avgReach], ['engajamento', r.avgEng], ['compartilhamento', r.avgShares], ['salvamento', r.avgSaved]]; return cand.sort((a, b) => b[1] - a[1])[0][0]; };
+  const topFmtReach = fmtRows.slice().sort((a, b) => b.avgReach - a.avgReach)[0];
+
+  const top = (k, n) => curP.slice().sort((a, b) => b[k] - a[k]).slice(0, n);
+  const contItem = p => `<div class="rp-card"><div class="rp-note">${new Date(p.ts).toLocaleDateString('pt-BR')} · ${p.type}</div>
+    <div style="font-size:12.5px;font-weight:600;margin:3px 0">${(p.caption || '(sem legenda)').slice(0, 70)}</div>
+    <div class="rp-note">Alcance ${money(p.reach)} · Views ${money(p.views)} · Interações ${money(p.eng)} · Compart. ${money(p.shares)} · Salvam. ${money(p.saved)}</div>
+    <div class="rp-note" style="margin-top:3px">🖼️ miniatura indisponível (CDN do Instagram bloqueada) · <a href="${p.link}" target="_blank">abrir ↗</a></div></div>`;
+
+  // conteúdos p/ ajuste: abaixo da mediana de alcance E baixa interação, com cautela
+  const ajustes = curP.filter(p => p.reach < cur.medReach && p.rate < 0.03).sort((a, b) => a.rate - b.rate).slice(0, 3);
+
+  // ---- Resumo executivo (máx 5, interpretado) ----
+  const resumo = [];
+  if (vReach !== null) resumo.push(`O alcance ${vReach >= 0 ? 'cresceu' : 'caiu'} <b>${pf(vReach)}</b> (de ${money(prev.reachT)} para ${money(cur.reachT)} contas), sinal de ${vReach >= 0 ? 'maior' : 'menor'} presença da marca no período.`);
+  if (vEngRate !== null) resumo.push(`A taxa de engajamento ${vEngRate >= 0 ? 'subiu' : 'recuou'} <b>${pf(vEngRate)}</b> (${cur.engRate.toFixed(1)}% vs ${prev.engRate.toFixed(1)}%), indicando ${vEngRate >= 0 ? 'reação proporcionalmente maior' : 'reação proporcionalmente menor'} do público.`);
+  if (topFmtReach) resumo.push(`<b>${topFmtReach.f}</b> foi o formato de maior alcance médio (${money(topFmtReach.avgReach)} por publicação), concentrando a distribuição do período.`);
+  if (cur.concentration >= 0.3 && cur.top) resumo.push(`Um único conteúdo respondeu por <b>${(cur.concentration * 100).toFixed(0)}%</b> do alcance — resultado ainda dependente de poucos posts.`);
+  const shareLead = top('shares', 1)[0];
+  if (shareLead) resumo.push(`Principal oportunidade: escalar o que gera compartilhamento — o conteúdo mais partilhado teve <b>${money(shareLead.shares)}</b> compart. e potencial de alcançar novos públicos.`);
+
+  // ---- Leitura executiva dos indicadores ----
+  const qa = [];
+  const q = (question, answer) => qa.push(`<div class="rp-q">${question}</div><div class="rp-a">${answer}</div>`);
+  q('A marca chegou a mais pessoas?', vReach === null ? 'Sem base anterior comparável.' : `${vReach >= 0 ? 'Sim' : 'Não'}. O alcance foi de ${money(cur.reachT)} contas (${trendSpan(vReach)} vs ${money(prev.reachT)}).`);
+  q('O público reagiu mais?', vTi === null ? 'Sem base anterior.' : `Interações totais ${money(cur.tiT)} (${trendSpan(vTi)}); taxa de engajamento ${cur.engRate.toFixed(1)}% (${trendSpan(vEngRate)}).`);
+  q('O crescimento veio de publicar mais ou de publicar melhor?', `Posts: ${cur.n} (${trendSpan(vPosts)}); alcance médio por post: ${money(cur.avgReach)} (${trendSpan(vAvgReach)}); interações médias: ${money(cur.avgEng)} (${trendSpan(vAvgEng)}). ${vAvgReach !== null && vPosts !== null ? (vAvgReach > 5 ? 'O ganho veio principalmente de publicar <b>melhor</b> (mais desempenho por post).' : vPosts > 5 && vAvgReach <= 0 ? 'O movimento veio de publicar <b>mais</b>, não de melhorar o desempenho por post.' : 'Volume e desempenho por post evoluíram de forma parecida.') : ''}`);
+  q('Os conteúdos estão circulando?', `Compartilhamentos médios por post: ${cur.avgShares.toFixed(1)} (${trendSpan(vShares)}). ${vShares !== null && vShares >= 0 ? 'Distribuição orgânica em alta.' : 'Distribuição orgânica em queda — vale reforçar ganchos compartilháveis.'}`);
+  q('A comunidade cresceu?', followersCur !== null ? `No período houve <b>+${money(followersCur)}</b> novos seguidores. A fonte não fornece o mesmo dado para o período anterior (histórico de seguidores/dia limitado a 30 dias), então não há comparação percentual.` : 'A fonte limita o histórico de novos seguidores a 30 dias — como este período está fora dessa janela, o dado de seguidores não está disponível para comparação.');
+  q('As publicações ficaram mais eficientes?', vAvgReach === null ? 'Sem base anterior.' : `Alcance médio por conteúdo ${money(cur.avgReach)} (${trendSpan(vAvgReach)}) e interações médias ${money(cur.avgEng)} (${trendSpan(vAvgEng)}).`);
+  q('O resultado ficou concentrado em poucos posts?', cur.top ? `O maior post respondeu por <b>${(cur.concentration * 100).toFixed(0)}%</b> do alcance total. ${cur.concentration >= 0.3 ? 'Concentração relevante — atenção à dependência de outliers.' : 'Distribuição razoavelmente equilibrada.'}` : 'Sem posts no período.');
+
+  // ---- O que evoluiu / atenção ----
+  const evo = [], aten = [];
+  const push = (arr, cond, txt) => { if (cond) arr.push(txt); };
+  push(evo, vReach !== null && vReach > 2, `Alcance total ${pf(vReach)} (${money(cur.reachT)} vs ${money(prev.reachT)}).`);
+  push(evo, vTi !== null && vTi > 2, `Interações totais ${pf(vTi)} (${money(cur.tiT)} vs ${money(prev.tiT)}).`);
+  push(evo, vAvgReach !== null && vAvgReach > 2, `Alcance médio por post ${pf(vAvgReach)} (${money(cur.avgReach)} vs ${money(prev.avgReach)}).`);
+  push(evo, vShares !== null && vShares > 2, `Compartilhamentos médios ${pf(vShares)} (${cur.avgShares.toFixed(1)} vs ${prev.avgShares.toFixed(1)}).`);
+  push(evo, vEngRate !== null && vEngRate > 2, `Taxa de engajamento ${pf(vEngRate)} (${cur.engRate.toFixed(1)}% vs ${prev.engRate.toFixed(1)}%).`);
+  push(aten, vEngRate !== null && vEngRate < -2, `Taxa de engajamento ${pf(vEngRate)} (${cur.engRate.toFixed(1)}% vs ${prev.engRate.toFixed(1)}%).`);
+  push(aten, vReach !== null && vReach < -2, `Alcance total ${pf(vReach)} (${money(cur.reachT)} vs ${money(prev.reachT)}).`);
+  push(aten, vAvgReach !== null && vAvgReach < -2, `Alcance médio por post ${pf(vAvgReach)} (${money(cur.avgReach)} vs ${money(prev.avgReach)}).`);
+  push(aten, cur.concentration >= 0.35, `Dependência de outlier: 1 post = ${(cur.concentration * 100).toFixed(0)}% do alcance.`);
+  push(aten, vPosts !== null && vReach !== null && vPosts > 10 && vReach < vPosts - 5, `Volume subiu ${pf(vPosts)} mas alcance só ${pf(vReach)} — produção sem retorno proporcional.`);
+  if (!evo.length) evo.push('Sem evolução relevante acima de 2% frente ao período anterior.');
+  if (!aten.length) aten.push('Nenhum recuo relevante acima de 2% frente ao período anterior.');
+
+  // ---- Objetivos (resumo) ----
+  const objBlock = (titulo, arr, leitura) => `<div class="rp-card"><h4>${titulo}</h4>${arr.map(p => `<div style="font-size:12.5px">• ${(p.caption || '(sem legenda)').slice(0, 50)} <a href="${p.link}" target="_blank">↗</a></div>`).join('')}<div class="rp-a" style="margin-top:5px">${leitura}</div></div>`;
+  const objRec = top('reach', 2), objShare = top('shares', 2), objSave = top('saved', 2);
+  const objetivos = objBlock('Reconhecimento', objRec, `Maior distribuição do período — alcance de até ${money(objRec[0] ? objRec[0].reach : 0)}.`) +
+    objBlock('Compartilhamentos', objShare, `Conteúdos com maior circulação orgânica — até ${money(objShare[0] ? objShare[0].shares : 0)} compart.`) +
+    objBlock('Salvamentos (utilidade)', objSave, `Conteúdos guardados para consultar depois — até ${money(objSave[0] ? objSave[0].saved : 0)} salvam.`);
+
+  // ---- Diagnóstico ----
+  let princ = '';
+  if (vReach !== null && vEngRate !== null && vReach > 8 && vEngRate < -8) princ = `O alcance cresceu <b>${pf(vReach)}</b>, mas a taxa de engajamento caiu <b>${pf(vEngRate)}</b> — a maior distribuição não foi acompanhada pelo mesmo crescimento das interações.`;
+  else if (vReach !== null) princ = `O período teve alcance de ${money(cur.reachT)} (${trendSpan(vReach)}) e ${cur.n} publicações, com taxa de engajamento de ${cur.engRate.toFixed(1)}%.`;
+  else princ = `Período com ${cur.n} publicações e alcance de ${money(cur.reachT)}; base anterior limitada para comparação.`;
+  const compl = [];
+  push(compl, vAvgReach !== null && vPosts !== null && Math.abs((vReach || 0) - (vAvgReach || 0)) > 12, `Total vs média: alcance total ${pf(vReach)} enquanto o médio por post ${pf(vAvgReach)} — o volume pesou no resultado.`);
+  push(compl, topFmtReach != null, `${topFmtReach.f} lidera o alcance médio (${money(topFmtReach.avgReach)}/post) — motor de distribuição.`);
+  push(compl, cur.concentration >= 0.3, `Concentração: 1 post = ${(cur.concentration * 100).toFixed(0)}% do alcance — resultado pouco previsível.`);
+  push(compl, vShares !== null, `Compartilhamentos médios ${trendSpan(vShares).replace(/<[^>]+>/g, '')} — distribuição orgânica ${vShares >= 0 ? 'em alta' : 'em queda'}.`);
+  push(compl, cur.n < 12, `Amostra de ${cur.n} posts — algumas leituras por formato/tema têm confiança reduzida.`);
+
+  // ---- Recomendações (reusa ALL_RECS, Alta/Média) ----
+  const recs = (ALL_RECS || []).filter(r => r.prio === 'Alta' || r.prio === 'Média').sort((a, b) => (PRIO_RANK[b.prio] - PRIO_RANK[a.prio]));
+  const recBlock = recs.length ? recs.map(r => `<div class="rp-card"><h4>${r.prio} · ${r.cat}</h4><div style="font-size:13px;font-weight:600">${r.title}</div><div class="rp-a">${r.action}</div><div class="rp-note" style="margin-top:3px">${r.justification}</div></div>`).join('') : '<div class="rp-a">Sem recomendações de prioridade Alta/Média no momento.</div>';
+
+  // ---- Plano de ação ----
+  const planContinuar = topFmtReach ? `Manter o investimento em <b>${topFmtReach.f}</b> (maior alcance médio, ${money(topFmtReach.avgReach)}/post) e nos temas que mais circularam.` : 'Manter os formatos de melhor alcance.';
+  const worstFmt = fmtRows.slice().sort((a, b) => a.avgReach - b.avgReach)[0];
+  const planReduzir = worstFmt && fmtRows.length > 1 && worstFmt.avgReach < cur.medReach ? `Rever a frequência de <b>${worstFmt.f}</b> (alcance médio ${money(worstFmt.avgReach)}, abaixo da mediana) — sem eliminar se cumprir função institucional/comercial.` : 'Nada a reduzir com clareza neste período.';
+  const planTestar = shareLead ? `Testar como série/mídia paga o conteúdo de maior compartilhamento (${money(shareLead.shares)} compart.) e horários/faixas ainda pouco usados.` : 'Testar novos formatos e horários pouco explorados.';
+  const planVoltar = `Retomar temas atemporais de bom desempenho para reduzir a dependência de conteúdos pontuais.`;
+  const planMonitorar = `Acompanhar a taxa de engajamento (${cur.engRate.toFixed(1)}%) e a concentração de alcance (${(cur.concentration * 100).toFixed(0)}% no maior post) no próximo período.`;
+
+  // ================= MONTAGEM =================
+  const kpiRow = (l, c, p, v, fmt) => `<tr><td>${l}</td><td>${p === null ? '<span class="rp-note">indisponível</span>' : fmt(p)}</td><td><b>${fmt(c)}</b></td><td>${trendSpan(v)}</td></tr>`;
+  return `<div class="rp">
+    <div class="rp-cover">
+      <div class="kick">Relatório Executivo</div>
+      <h1>Instagram — Brownie do Luiz</h1>
+      <div class="sub2">@browniedoluiz</div>
+      <div class="meta"><b>Período analisado:</b> ${brDate(R.curStart)} a ${brDate(R.curEnd)} (${R.days} dias)<br>
+        <b>Comparado com:</b> ${brDate(R.prevStart)} a ${brDate(R.prevEnd)}<br>
+        <b>Gerado em:</b> ${genStamp}</div>
+    </div>
+    <div class="rp-body">
+
+      <div class="rp-sec"><h2>1. Resumo executivo</h2><ul class="rp-bullets">${resumo.slice(0, 5).map(x => `<li>${x}</li>`).join('')}</ul></div>
+
+      <div class="rp-sec"><h2>2. KPIs principais</h2>
+        <table class="rp-kpi"><thead><tr><th>Indicador</th><th>Período anterior</th><th>Período atual</th><th>Variação</th></tr></thead><tbody>
+          ${kpiRow('Alcance total', cur.reachT, prev.reachT, vReach, money)}
+          ${kpiRow('Visualizações totais', cur.viewsT, prev.viewsT, vViews, money)}
+          ${kpiRow('Interações totais', cur.tiT, prev.tiT, vTi, money)}
+          ${kpiRow('Taxa de engajamento', cur.engRate, prev.engRate, vEngRate, n => n.toFixed(1) + '%')}
+          ${kpiRow('Posts publicados', cur.n, prev.n, vPosts, n => nf.format(n))}
+          ${kpiRow('Alcance médio por post', cur.avgReach, prev.avgReach, vAvgReach, money)}
+          ${kpiRow('Interações médias por post', cur.avgEng, prev.avgEng, vAvgEng, money)}
+          ${kpiRow('Compartilhamentos médios', cur.avgShares, prev.avgShares, vShares, n => n.toFixed(1))}
+          <tr><td>Novos seguidores</td><td class="rp-note">indisponível</td><td><b>${followersCur !== null ? '+' + money(followersCur) : '—'}</b></td><td class="rp-note">${followersCur !== null ? 'sem período anterior (limite de 30 dias)' : 'fora da janela de 30 dias'}</td></tr>
+        </tbody></table>
+        <h3 style="margin-top:14px;font-size:14px">Leitura executiva dos indicadores</h3>
+        <div class="rp-a">${qa.join('')}</div>
+      </div>
+
+      <div class="rp-sec"><h2>3. O que evoluiu</h2><ul class="rp-bullets">${evo.slice(0, 5).map(x => `<li>${x}</li>`).join('')}</ul></div>
+      <div class="rp-sec"><h2>4. O que merece atenção</h2><ul class="rp-bullets">${aten.slice(0, 5).map(x => `<li>${x}</li>`).join('')}</ul></div>
+
+      <div class="rp-sec"><h2>5. Formatos</h2>
+        <table class="rp-kpi"><thead><tr><th>Formato</th><th>Quantidade</th><th>Alcance médio</th><th>Engajamento médio</th><th>Principal força</th></tr></thead><tbody>
+          ${fmtRows.sort((a, b) => b.n - a.n).map(r => `<tr><td>${r.f}</td><td>${r.n}</td><td>${money(r.avgReach)}</td><td>${money(r.avgEng)}</td><td style="text-align:left">${forca(r)}</td></tr>`).join('')}
+        </tbody></table>
+        <div class="rp-a" style="margin-top:8px">${topFmtReach ? `<b>${topFmtReach.f}</b> concentra o maior alcance médio (${money(topFmtReach.avgReach)}/post). ${fmtRows.length > 1 ? 'Avaliar equilíbrio entre volume e retorno de cada formato.' : ''}` : ''}</div>
+      </div>
+
+      <div class="rp-sec"><h2>6. Conteúdos de destaque</h2>
+        <h4 class="rp-note">Top 3 por alcance</h4><div class="rp-cards">${top('reach', 3).map(contItem).join('')}</div>
+        <h4 class="rp-note" style="margin-top:12px">Top 3 por compartilhamentos</h4><div class="rp-cards">${top('shares', 3).map(contItem).join('')}</div>
+        <h4 class="rp-note" style="margin-top:12px">Top 3 por engajamento</h4><div class="rp-cards">${top('eng', 3).map(contItem).join('')}</div>
+        <h4 class="rp-note" style="margin-top:12px">Top 3 por salvamentos</h4><div class="rp-cards">${top('saved', 3).map(contItem).join('')}</div>
+      </div>
+
+      <div class="rp-sec"><h2>7. Conteúdos que precisam de ajustes</h2>
+        ${ajustes.length ? ajustes.map(p => `<div class="rp-card" style="margin-bottom:8px"><div style="font-size:12.5px;font-weight:600">${(p.caption || '(sem legenda)').slice(0, 60)} <a href="${p.link}" target="_blank">↗</a></div><div class="rp-a">Ficou abaixo do esperado: alcance ${money(p.reach)} (mediana do período ${money(cur.medReach)}) e taxa de engajamento ${(p.rate * 100).toFixed(1)}%. Possíveis melhorias: gancho na legenda, CTA mais claro e teste de outro formato/horário. <span class="rp-note">Não é "pior conteúdo" — pode ter tido outro objetivo.</span></div></div>`).join('') : '<div class="rp-a">Sem conteúdos claramente abaixo do padrão com os critérios aplicados.</div>'}
+      </div>
+
+      <div class="rp-sec"><h2>8. Objetivos de marketing</h2><div class="rp-cards" style="grid-template-columns:1fr 1fr 1fr">${objetivos}</div></div>
+
+      <div class="rp-sec"><h2>9. Diagnóstico</h2>
+        <div class="rp-card" style="border-color:#e8ddcd;background:#fbf8f3"><h4>Principal diagnóstico do período</h4><div class="rp-a" style="font-size:14px">${princ}</div></div>
+        <ul class="rp-bullets" style="margin-top:8px">${compl.slice(0, 5).map(x => `<li>${x}</li>`).join('')}</ul>
+      </div>
+
+      <div class="rp-sec"><h2>10. Recomendações prioritárias</h2><div class="rp-cards">${recBlock}</div>
+        <div class="rp-note" style="margin-top:6px">Recomendações derivadas da análise de 30 dias do painel (prioridade Alta e Média).</div></div>
+
+      <div class="rp-sec"><h2>11. Plano de ação — próximo período</h2>
+        <div class="rp-plan">
+          <div class="rp-card"><h4>✅ Continuar fazendo</h4><div class="rp-a">${planContinuar}</div></div>
+          <div class="rp-card"><h4>➖ Reduzir</h4><div class="rp-a">${planReduzir}</div></div>
+          <div class="rp-card"><h4>🧪 Testar</h4><div class="rp-a">${planTestar}</div></div>
+          <div class="rp-card"><h4>↩️ Voltar a fazer</h4><div class="rp-a">${planVoltar}</div></div>
+          <div class="rp-card" style="grid-column:1 / -1"><h4>📡 Monitorar</h4><div class="rp-a">${planMonitorar}</div></div>
+        </div>
+      </div>
+
+      <div class="rp-note" style="margin-top:26px;border-top:1px solid #eee7dc;padding-top:10px">Relatório gerado automaticamente a partir de dados reais do Instagram via Windsor.ai. Classificações de tema são automáticas por legenda; seguidores por Reel, retenção e vendas não estão disponíveis na fonte. Comparação sempre contra o período imediatamente anterior de mesma duração.</div>
+    </div>
+  </div>`;
+}
+
+function initReport() {
+  document.getElementById('openReport').addEventListener('click', () => { showLastReport(); refreshRepUI(); document.getElementById('reportModal').classList.add('open'); });
+  document.getElementById('repCancel').addEventListener('click', () => document.getElementById('reportModal').classList.remove('open'));
+  document.getElementById('repPeriod').addEventListener('change', refreshRepUI);
+  document.getElementById('repFrom').addEventListener('change', refreshRepUI);
+  document.getElementById('repTo').addEventListener('change', refreshRepUI);
+  document.getElementById('repGenerate').addEventListener('click', generateReport);
+  document.getElementById('repClose').addEventListener('click', () => document.getElementById('reportOverlay').classList.remove('open'));
+  document.getElementById('repPrint').addEventListener('click', () => window.print());
+  document.getElementById('reportModal').addEventListener('click', e => { if (e.target.id === 'reportModal') document.getElementById('reportModal').classList.remove('open'); });
+}
+
+(async () => {
+  buildNav();
+  initReport();
+  try {
+    const d = await fetchData();
+    const extraByLink = {};
+    (d.mediaExtra || []).forEach(x => { extraByLink[x.media_permalink] = x; });
+    posts = d.media.map(m => {
+      const x = extraByLink[m.media_permalink] || {};
+      const isReel = (m.media_type || '') === 'REELS';
+      return {
+        ts: new Date(m.timestamp).getTime(),
+        dateStr: new Date(m.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        caption: (m.media_caption || '').split('\n')[0],
+        fullCaption: m.media_caption || '',
+        type: (m.media_type || '').replace('CAROUSEL_ALBUM', 'CARROSSEL').replace('IMAGE', 'FOTO'),
+        rawType: m.media_type || '',
+        isReel,
+        link: m.media_permalink,
+        reach: m.media_reach || 0,
+        eng: m.media_engagement || 0,
+        rate: m.media_reach ? (m.media_engagement || 0) / m.media_reach : 0,
+        shares: m.media_shares || 0,
+        likes: m.media_like_count || 0,
+        comments: m.media_comments_count || 0,
+        saved: m.media_saved || 0,
+        views: x.media_views || 0,
+        profileVisits: x.media_profile_visits || 0,
+        follows: x.media_follows || 0,
+        followsAvailable: !isReel,   // media_follows não é suportado para Reels
+        watchTotal: x.media_reel_total_watch_time || 0,
+        watchAvg: x.media_reel_avg_watch_time || 0,
+        pid: m.media_permalink   // id estável para cross-tab
+      };
+    });
+    posts.forEach(p => { const cs = collabState(p); p.collab = cs.state; p.collabConf = cs.conf; });
+    document.getElementById('updated').textContent =
+      `Dados ao vivo via Windsor.ai · janela 30d: ${d.range.curStart.slice(5)} a ${d.range.curEnd.slice(5)} · atualizado ` +
+      new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    document.getElementById('status').style.display = 'none';
+    document.getElementById('panel-visao-geral').classList.add('active');
+    computeMedians();
+    renderKpis(d);
+    renderFindings(d);
+    renderChart30(d);
+    renderChart14(d.daily14);
+    renderTable();
+    renderObjetivos();
+    renderTestes(d);
+    ANALYSIS = analyze(d);
+    renderDiagnostico(d);
+    renderRecomendacoes();
+    renderStories(d);
+    OVERRIDES = loadOverrides();
+    computeMembership();
+    renderCollabs();
+    renderReels();
+    renderConteudos();
+    DATA = d;
+    renderComparativos();
+    renderHorarios();
+    renderFormatos();
+  } catch (e) {
+    document.getElementById('status').innerHTML = '<div class="err">Não consegui carregar os dados: ' + e.message + '. Use o botão Recarregar no topo.</div>';
+  }
+})();
+</script>
+</body>
+</html>
